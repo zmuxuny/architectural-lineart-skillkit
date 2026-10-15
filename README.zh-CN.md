@@ -40,6 +40,33 @@
 
 说明：截图只展示「主线突出」这个文字状态，没有显示滑块数值。示例 HTML 采用 `detail=1.65` 作为**近似默认值**，用户仍可交互调整，不能把 1.65 说成截图明确记录的精确值。
 
+
+## 新增：真实建筑照片约束生图与事实审查门禁（v0.2.0）
+
+你关心的关键阶段是**真正把可信的建筑照片交给图像生成模型，而不是只提示「画某大学」**。我们已经将第一个 Skill 从操作建议升级为带 Python 工具的取证、证据锁定、生成约束和人工审核流程。
+
+1. **原始照片取证**：按建筑全名、校区与拍摄视角查询原始摄影页面；每栋建筑至少 **两张不同机位的原照片**，各至少 1.5MP（短边 ≥850px，长边 ≥1400px），并记录摄影师、来源和衍生创作使用许可。必须指定一个 `primary_view_id` 为主要机位，其他角度用于辅助核验，不能把两种视角拼成虚假的几何结构。
+2. **事实清单**：把实际看得到的屋顶、窗户、门洞、钟楼、立柱等特征逐项绑定原图 ID，必要时人工框出局部证据图；把看不到的立面列为未知，把禁止额外创造的结构列为约束。校名与官方字标**不交给生图模型猜写**。
+3. **生成前门禁**：程序检查分辨率、重复/近重复、来源字段、不同角度、证据区域；输出 `reference-board.png`、`feature-crops/`、`evidence-lock.json`、`generation-brief.md`。证据不足则直接 `blocked`。
+4. **真正按图片生图**：Agent 必须调用支持图片输入的生成／编辑工具，逐栋附上**真实照片像素和风格参考图**，每栋独立生成、独立核对，再用 `compose.py` 透明切片拼接，避免不同建筑特征串扰。若要求严格几何真实而模型总是变形，则切换到参考照片的人工矢量描绘。
+5. **审核后放行**：真人按原图逐项判断生成建筑有没有错误结构、额外建筑、错误文字；有 `fail` / `unknown` 就不能通过。通过后 `approval.json` 与当前生成 PNG 的 SHA-256 绑定，后续 `convert.py --approval` 拒绝未审查或替换的图片。
+
+~~~bash
+# 创建默认不通过的证据模板，接着真实填入照片、视角、版权、特征证据
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py template --output workspace/project.json
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py prepare --manifest workspace/project.json --out-dir workspace/grounding
+
+# 完成实际的参考图生图与逐项人工审查后，填写 review.json
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py audit --manifest workspace/project.json --evidence-lock workspace/grounding/evidence-lock.json --image workspace/artwork/final.png --review workspace/artwork/review.json --output workspace/artwork/approval.json
+
+# 绑定审核 PNG 的 SHA-256，才进入 SVG 阶段
+python skills/raster-to-layered-svg/scripts/convert.py --input workspace/artwork/final.png --approval workspace/artwork/approval.json --out-dir workspace/dist --size 3840x2160
+~~~
+
+**直接阅读：** [完整中文操作与数据流](docs/PHOTO_GROUNDING.zh-CN.md) · [照片检索与版权核验](skills/campus-architectural-lineart/references/photo-sourcing.md) · [输入清单与审核 JSON 示例](skills/campus-architectural-lineart/references/evidence-schema.md) · [审核助手规则](skills/campus-architectural-lineart/references/assisted-review.md) · [完整取证工具源码](skills/campus-architectural-lineart/scripts/reference_pipeline.py)。
+
+**诚实的能力边界：** 软件能强制记录来源、检查图片质量与哈希、阻止缺少人工审核记录的结果，但无法自动证明照片身份、授权或生成建筑的几何结构绝对真实。之前的浙大线稿是旧版 AI 艺术拼贴，没有逐栋核验的真实证据包，不能事后声称它通过了新版真实性审核。
+
 ## 3 个 Agent Skills
 
 1. **[campus-architectural-lineart](skills/campus-architectural-lineart/SKILL.md)**：真实建筑参考素材核验 → 场景构图 → 生成手绘风格插画 → 与参考照片比对。AI 生成的建筑可能不准确，不能以图像替代事实核验。

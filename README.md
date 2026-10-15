@@ -31,6 +31,34 @@ The screenshot shows the **real browser UI**, not a mockup. Adjust HEX color, vi
 
 **End-to-end flow:** reference checks → AI illustration (creative step) → transparency extraction + 11-level contour vectorization → 3840 × 2160 exports → single-file offline HTML workbench.
 
+
+## Photo-grounded reference generation (v0.2.0)
+
+**This is the critical stage before PNG → SVG.** The first Skill now includes runnable reference-evidence tools and a *fail-closed* review gate rather than relying only on generic prompting. It cannot magically guarantee real-world geometry; a human must check photographs, rights and generated architecture.
+
+1. **Collect** full-size, identified and legally usable original photos: at least **two genuinely different camera views per landmark**, each >=1.5 MP (short edge >=850px, long edge >=1400px). Choose one `primary_view_id` to anchor the generator's perspective. Official source pages do not automatically confer derivative rights.
+2. **Document** each building's visible roof/facade/tower/door geometry as photo-ID-cited constraints; record the unobserved areas and forbidden inventions. Do not synthesize university wordmarks or inscriptions.
+3. **Preflight** validates dimensions, source metadata, image duplicates, photo angles and human evidence fields, then builds original-photo boards, feature crops, a source SHA-256 lock and a per-building `generation-brief.md`.
+4. **Generate using real image input:** an Agent must actually attach the original photograph pixels + style image to an image-enabled tool **for each building**. Separately rendered transparent cutouts can then be assembled with the deterministic compositor, rather than asking a model to invent a realistic joint skyline.
+5. **Audit** compares the artwork with the cited source photographs, with independent **human-reviewed** feature pass/fail/unknown statuses. Missing/failed checks, unknown additions and changed photos/artwork block approval. `convert.py --approval` binds SVG conversion to the exact reviewed PNG hash.
+
+~~~bash
+# Start with a deliberately unverified project manifest and fill it with real evidence
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py template --output workspace/project.json
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py prepare --manifest workspace/project.json --out-dir workspace/grounding
+
+# Actually provide the original photos as image attachments to a supported image tool.
+# Human-compare the result; fill review.json honestly from reference images.
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py audit --manifest workspace/project.json --evidence-lock workspace/grounding/evidence-lock.json --image workspace/artwork/final.png --review workspace/artwork/review.json --output workspace/artwork/approval.json
+
+# This rejects stale/unreviewed architecture illustrations
+python skills/raster-to-layered-svg/scripts/convert.py --input workspace/artwork/final.png --approval workspace/artwork/approval.json --out-dir workspace/dist --size 3840x2160
+~~~
+
+Read: [full Chinese protocol](docs/PHOTO_GROUNDING.zh-CN.md), [photo source selection](skills/campus-architectural-lineart/references/photo-sourcing.md), [JSON evidence/review schema](skills/campus-architectural-lineart/references/evidence-schema.md), [review assistant rubric](skills/campus-architectural-lineart/references/assisted-review.md), and [deliberately unverified starter template](skills/campus-architectural-lineart/examples/README.md).
+
+**Important:** The old ZJU example shown above is an **illustrative AI montage**, not a retrospectively certified accurate architectural reconstruction. Source identity, copyright and visual correctness require actual human verification; the CLI tests evidence/review integrity, not truth. Without an image-input capable model, the Skill should stop with a reference packet rather than claim generation was performed.
+
 ## What you get
 
 | Skill | Purpose | Output |
