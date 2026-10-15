@@ -4,7 +4,32 @@
 
 这个开源套件复现了我们从“校园建筑黑底灰白手绘风格图”走到**可调色、可导出 SVG 和 4K PNG 的离线 HTML 工具**的完整过程。
 
-![白底最终调色预览](examples/zju/final-gray-on-white-preview.jpg)
+## 案例展示：浙江大学主题建筑线稿
+
+下面是本仓库**真实提供的完整案例**，从选定的 AI 插画原稿，经过矢量化和调色，得到可叠加到白底 PPT 的建筑线稿。它是**艺术性拼贴**，不是经逐栋核验的真实校园建筑图（详见[素材与商标说明](ASSET_NOTICE.md)）。
+
+| 输入：AI 建筑插画原稿 | 输出：白底浅灰建筑线稿 |
+| :--: | :--: |
+| ![黑底白线浙江大学主题原始插画](examples/zju/source-ai-illustration.png) | ![最终白底浅灰建筑线条预览](examples/zju/final-gray-on-white-preview.jpg) |
+| 原图 **1672 × 941** | 最终配色 **`#AEB0B2`**，可见度 **`1.15×`** |
+
+### 实际运行的 SVG 调色工作台
+
+<img src="docs/assets/workbench-screenshot.png" alt="真实运行的离线 SVG 调色工具截图，展示建筑线稿、灰度预设、可见度与细节滑块、4K PNG 和 SVG 导出按钮" width="950">
+
+这张是**实际浏览器运行截图，不是 UI 概念图**。可以调整 HEX 线条颜色、可见度和细节层次，切换白底／黑底／透明预览，最后导出 4K PNG 或真实 SVG 路径。你的最终选择是「主线突出」，但截图未显示该滑块的精确数值；示例中使用可调的近似初值 `detail=1.65`。
+
+**直接体验与查看案例产物：**
+
+| 产物 | 预览／使用入口 |
+| --- | --- |
+| 选定的 AI 插画原稿 | [黑底原图 PNG](examples/zju/source-ai-illustration.png) |
+| 最终白底 PPT 效果 | [灰线效果预览](examples/zju/final-gray-on-white-preview.jpg) |
+| 4K 透明背景线稿 | [透明底 PNG](examples/zju/lineart-transparent.png) |
+| 真正的分层矢量路径 | [11 层路径 SVG](examples/zju/lineart.svg) |
+| 可交互的完整调色器 | [下载 `workbench.html`](examples/zju/workbench.html)，用 Edge／Chrome 双击打开 |
+
+**完整案例流水线：** 建筑参考与真实性检查 → AI 生成精细插画 → 透明背景和 11 级轮廓矢量化 → 导出 3840 × 2160 PNG／SVG → 打包单文件离线 HTML。
 
 ## 最终用户参数
 

@@ -4,9 +4,32 @@
 
 **From referenced buildings and a hand-drawn image to transparent 4K PNG, genuine multi-layer SVG paths, and a single-file offline color workbench.**
 
-![White-background sample](examples/zju/final-gray-on-white-preview.jpg)
+## Case study — Zhejiang University-inspired architectural line art
 
-> **Example defaults, as selected in the user's final UI screenshot:** line color `#AEB0B2`, visibility `1.15×`, detail category **Main lines emphasized / 主线突出**. The numeric detail position is not shown in the screenshot; this demo approximates it as **1.65** and exposes it for adjustment.
+Here is the **actual example included in this repository**, from the selected AI illustration to an adjustable, presentation-ready grayscale result. The buildings form an **artistic montage, not a verified depiction of the real campus** ([asset and trademark notes](ASSET_NOTICE.md)).
+
+| Source artwork · black background | Final result · gray lines on white |
+| :--: | :--: |
+| ![Original black-background Zhejiang University-inspired campus line illustration](examples/zju/source-ai-illustration.png) | ![Final gray architectural line art on a white PowerPoint-style background](examples/zju/final-gray-on-white-preview.jpg) |
+| AI-generated artwork, **1672 × 941** | White-slide preview, line color **`#AEB0B2`** and visibility **`1.15×`** |
+
+### The offline color editor, in use
+
+<img src="docs/assets/workbench-screenshot.png" alt="Actual browser screenshot of the offline SVG color workbench with a gray campus illustration, presets, line visibility/detail sliders, and export buttons" width="950">
+
+The screenshot shows the **real browser UI**, not a mockup. Adjust HEX color, visibility and detail emphasis, preview on a white/black/transparent background, then export 4K PNG or true SVG paths. The **Main lines emphasized (主线突出)** setting is selected; its exact original slider number was not visible, so the bundled example uses an adjustable approximation (`detail=1.65`).
+
+**Explore the exact demo files:**
+
+| Artifact | Preview / use |
+| --- | --- |
+| Selected source illustration | [Source PNG](examples/zju/source-ai-illustration.png) |
+| White-slide final appearance | [Full preview](examples/zju/final-gray-on-white-preview.jpg) |
+| 4K transparent line art | [Transparent PNG](examples/zju/lineart-transparent.png) |
+| Real multi-layer vector output | [SVG with 11 path layers](examples/zju/lineart.svg) |
+| Full-featured offline editor | [Download `workbench.html`](examples/zju/workbench.html) and open in Edge/Chrome |
+
+**End-to-end flow:** reference checks → AI illustration (creative step) → transparency extraction + 11-level contour vectorization → 3840 × 2160 exports → single-file offline HTML workbench.
 
 ## What you get
 
