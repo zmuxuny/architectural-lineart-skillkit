@@ -11,3 +11,7 @@ demo:
 
 clean:
 	rm -rf dist
+
+# Start a photo-grounded (intentionally unapproved) illustration project
+photo-template:
+	$(PYTHON) skills/campus-architectural-lineart/scripts/reference_pipeline.py template --output workspace/project.json

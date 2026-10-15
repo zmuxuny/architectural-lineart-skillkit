@@ -9,6 +9,8 @@ import argparse
 from pathlib import Path
 from html import escape
 import sys
+import json
+import hashlib
 import numpy as np
 import cv2
 from PIL import Image
@@ -78,6 +80,25 @@ def vectorize(gray: np.ndarray, out: Path, title: str, target_size:tuple[int,int
         f.write('</svg>\n')
     return len(thresholds),count
 
+def assert_approved_image(image: Path, approval: Path) -> None:
+    """Reject stale/unreviewed generated artworks in factual architectural workflows.
+
+    Generic user-supplied illustrations remain supported without this flag; the
+    photo-grounded campus Skill MUST supply --approval before vectorization.
+    """
+    doc=json.loads(approval.read_text(encoding='utf8'))
+    if doc.get('status')!='approved':
+        raise ValueError('pre-vectorization audit has not approved this exact image')
+    if not doc.get('reviewer') or not doc.get('evidence_sha256') or not doc.get('review_sha256'):
+        raise ValueError('approval is missing reviewer/evidence/review provenance')
+    h=hashlib.sha256()
+    with image.open('rb') as f:
+        for chunk in iter(lambda:f.read(1048576),b''):
+            h.update(chunk)
+    if doc.get('image_sha256')!=h.hexdigest():
+        raise ValueError('image bytes changed after human review: approval does not match')
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--input',required=True,type=Path,help='Input PNG/JPG with pale lines on dark background')
@@ -90,11 +111,15 @@ def main():
     p.add_argument('--zoom',type=int,choices=(1,2,3),default=2,help='Upsampling before contour tracing')
     p.add_argument('--epsilon',type=float,default=0.48,help='Contour simplification in enlarged pixels')
     p.add_argument('--skip-svg',action='store_true')
+    p.add_argument('--approval',type=Path,help='Human-audited approval JSON bound to the exact input image; mandatory for photo-grounded landmark workflows')
     a=p.parse_args()
     if not a.input.is_file():p.error(f'Input does not exist: {a.input}')
     if not 0<=a.cutoff<255:p.error('--cutoff must be [0,255)')
     if a.gamma<=0:p.error('--gamma must be >0')
     if a.epsilon<=0:p.error('--epsilon must be >0')
+    if a.approval:
+        try: assert_approved_image(a.input,a.approval)
+        except (OSError,ValueError,json.JSONDecodeError) as exc: p.error('approval validation failed: '+str(exc))
     a.out_dir.mkdir(parents=True,exist_ok=True)
     print(f'Processing {a.input}, native raster: {Image.open(a.input).size}',file=sys.stderr)
     lum=load_luminance(a.input,a.mode)

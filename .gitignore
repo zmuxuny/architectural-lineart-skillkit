@@ -5,3 +5,5 @@ __pycache__/
 dist/
 .DS_Store
 Thumbs.db
+# Local photo evidence and review workspaces may contain user-owned / restricted images
+/workspace/

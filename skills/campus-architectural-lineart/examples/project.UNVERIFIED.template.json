@@ -1,0 +1,83 @@
+{
+  "landmarks": [
+    {
+      "forbidden_inventions": [
+        "Do not create unseen clock towers, wings, arches or readable signage"
+      ],
+      "id": "BuildingA",
+      "location": "REPLACE exact campus/location",
+      "must_match": [
+        {
+          "bbox": [
+            0.1,
+            0.1,
+            0.9,
+            0.5
+          ],
+          "description": "REPLACE with exact roof silhouette seen in original photograph",
+          "id": "roof",
+          "photo_ids": [
+            "front",
+            "side"
+          ],
+          "visible_and_human_verified": false
+        },
+        {
+          "bbox": [
+            0.2,
+            0.35,
+            0.8,
+            0.9
+          ],
+          "description": "REPLACE with actual entrance/column count visible in original photograph",
+          "id": "entrance",
+          "photo_ids": [
+            "front"
+          ],
+          "visible_and_human_verified": false
+        }
+      ],
+      "name": "REPLACE verified building name",
+      "official_marks": [],
+      "photos": [
+        {
+          "derivatives_allowed": false,
+          "file": "photos/BuildingA-front.jpg",
+          "human_confirmed_photo": false,
+          "id": "front",
+          "license": "REPLACE",
+          "original_url": "https://REPLACE-ORIGINAL-IMAGE",
+          "photographer": "REPLACE",
+          "source_page": "https://REPLACE-SOURCE-PAGE",
+          "source_verified_by": "",
+          "view_angle": "front"
+        },
+        {
+          "derivatives_allowed": false,
+          "file": "photos/BuildingA-side.jpg",
+          "human_confirmed_photo": false,
+          "id": "side",
+          "license": "REPLACE",
+          "original_url": "https://REPLACE-SECOND-ORIGINAL",
+          "photographer": "REPLACE",
+          "source_page": "https://REPLACE-SECOND-SOURCE",
+          "source_verified_by": "",
+          "view_angle": "side"
+        }
+      ],
+      "primary_view_id": "front",
+      "signage_policy": "no_generated_letters_use_verified_overlay",
+      "unknowns": [
+        "REPLACE with facade/sections not seen in photos; keep hidden"
+      ]
+    }
+  ],
+  "project": {
+    "aspect_ratio": "16:9",
+    "mode": "montage",
+    "title": "REPLACE: real campus/landmark",
+    "upper_blank_fraction": 0.62
+  },
+  "schema_version": 1,
+  "style_reference": "photos/style-reference.png"
+}

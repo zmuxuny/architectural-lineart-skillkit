@@ -1,3 +1,11 @@
+## [0.2.0] - 2026-10-16
+
+- Add `campus-architectural-lineart` photo-evidence CLI: original-photo provenance, minimum native resolution, distinct viewpoints and perceptual duplicate checks, feature crops, locked image hashes, grounded generation packet, and fail-closed human review.
+- Add deterministic multi-landmark transparent cutout compositor; explicitly label unrelated campuses as illustrative montages.
+- Add mandatory `convert.py --approval` option for evidence-gated factual landmark conversion, preserving generic opt-in compatibility.
+- Publish detailed sourcing / schema / prompting / compositing guides, an intentionally unverified template, and offline synthetic QA tests.
+- **No change** to the older illustrative Zhejiang University demo's fact status: it remains not architecture-certified.
+
 # Changelog
 
 ## 0.1.0 — 2026-10-15

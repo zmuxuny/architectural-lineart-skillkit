@@ -37,3 +37,7 @@ The skill's own `scripts/convert.py` works after copying just this skill directo
 ## Critical limitations
 
 4K describes the **output canvas**, not native source fidelity. Image upsampling does not recover detail. Extremely dense foliage creates large polygon paths; reduce tracing `--zoom` or increase `--epsilon` only after reviewing the visual change. Do not claim photo-faithful building geometry just because the SVG has valid paths.
+
+## Evidence-gated integration for factual landmarks
+
+When operating as the downstream stage of `campus-architectural-lineart`, do **not** accept unreviewed artwork. Add `--approval <reviewed-approval.json>` to the conversion command; the script rejects missing/blocked approvals or if the input image's SHA-256 no longer matches the human-audited artifact. The full photo-grounded process is documented in [`docs/PHOTO_GROUNDING.zh-CN.md`](../../docs/PHOTO_GROUNDING.zh-CN.md). Generic already-licensed artwork can still be vectorized without `--approval` when no factual building claim is being made.
