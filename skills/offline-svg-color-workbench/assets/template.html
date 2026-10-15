@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light" />
+<title>手绘线稿 · SVG 调色工作台</title>
+<style>
+:root {--ink:#14213a;--muted:#64748b;--blue:#174a8b;--blue2:#0e64cc;--stroke:#e3e8ef;--light:#f5f7fb;--shadow:0 14px 42px rgba(15,23,42,.075);--br:14px; font-family:Inter,"Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,-apple-system,sans-serif;}
+*{box-sizing:border-box}html,body{margin:0; min-height:100%; color:var(--ink); background:#f4f6fa}
+button,input,select{font:inherit}button{cursor:pointer}
+.top{background:#fff; padding:14px clamp(18px,3vw,42px); border-bottom:1px solid var(--stroke);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}.logo{display:grid;place-items:center;color:#fff;font-weight:900;background:#093b78;border-radius:12px;width:40px;height:40px;letter-spacing:-1px;font-size:13px}.brand h1{margin:0;font-size:19px;font-weight:750;letter-spacing:.2px}.brand p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.top-actions button{padding:8px 13px;border:1px solid var(--stroke);border-radius:10px;background:#fff;color:#354157;font-size:13px}.top-actions button:hover{background:var(--light)}
+.main{max-width:1920px;margin:0 auto;padding:18px 22px 24px;display:grid;grid-template-columns:minmax(0,1fr) 342px;gap:18px;align-items:start}
+.preview-panel{background:#fff;border:1px solid var(--stroke);box-shadow:var(--shadow);border-radius:var(--br);padding:18px;min-width:0}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.section-head h2{font-size:15px;margin:0}.section-head .small{font-size:12px;color:var(--muted)}
+.zoom{display:flex;align-items:center;gap:7px}.zoom button{width:27px;height:27px;border:1px solid var(--stroke);background:#fff;border-radius:7px}.zoom output{font-variant-numeric:tabular-nums;width:43px;text-align:center;font-size:12px;color:#475569}
+.preview-scroll{overflow:auto;border:1px solid #d7dfe8;border-radius:10px;min-height:260px;max-height:min(71vh,850px);background:#eef2f8;padding:12px}
+.artboard{position:relative;width:100%;aspect-ratio:16/9;min-width:420px;overflow:hidden;background:#fff;border-radius:2px;box-shadow:0 6px 26px rgba(0,0,0,.10)}
+.artboard.checker{background-color:#fff;background-image:linear-gradient(45deg,#e1e5eb 25%,transparent 25%),linear-gradient(-45deg,#e1e5eb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e1e5eb 75%),linear-gradient(-45deg,transparent 75%,#e1e5eb 75%);background-size:32px 32px;background-position:0 0,0 16px,16px -16px,-16px 0}
+.svg-holder{height:100%;width:100%}.svg-holder svg,.svg-holder canvas{width:100%;height:100%;display:block}.empty-loader{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#64748b;background:#fff;font-size:14px}
+.captionline{color:#64748b;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;margin-top:12px;font-size:12px}
+.notice{margin-top:16px;background:#f7f9fd;border:1px solid #e4eaf3;border-radius:10px;padding:13px 15px;font-size:13px;color:#4b5b71;line-height:1.8}
+.status{display:flex;align-items:center;gap:7px;font-size:12px;color:#475569;margin-top:10px}.dot{width:8px;height:8px;background:#22a06b;border-radius:50%;flex:0 0 auto}.dot.wait{background:#f59e0b}.dot.err{background:#ef4444}
+.side{display:flex;flex-direction:column;gap:13px}.panel{background:#fff;border-radius:var(--br);padding:18px;box-shadow:var(--shadow);border:1px solid var(--stroke)}
+.panel h3{margin:0 0 12px;font-size:14px;font-weight:750}.micro{font-size:12px;color:var(--muted);line-height:1.65;margin:8px 0 0}
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.preset{padding:12px 10px;text-align:left;min-height:57px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--stroke);border-radius:10px;font-weight:600;color:#29364d;font-size:12px}
+.preset:hover,.preset.active{border-color:#407ab8;background:#f1f6fc}.preset.active{box-shadow:0 0 0 1px #407ab8 inset}
+.swatch{flex:0 0 auto;width:23px;height:23px;border-radius:50%;border:1px solid rgba(0,0,0,.12);box-shadow:inset 0 0 0 3px rgba(255,255,255,.65)}
+.form-row{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;font-weight:650;margin-top:14px;margin-bottom:9px}
+.form-row:first-of-type{margin-top:0}.val{font-weight:700;color:#1c5295;font-size:12px;font-variant-numeric:tabular-nums}
+.colorline{display:flex;gap:9px;align-items:center}.colorline input[type=color]{width:52px;height:39px;border:1px solid var(--stroke);padding:3px;border-radius:9px;background:white;cursor:pointer}
+.colorline input[type=text]{min-width:0;flex:1;border:1px solid var(--stroke);outline:none;border-radius:9px;padding:10px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;color:#1e293b}
+.colorline input[type=text]:focus{border-color:#4385bf;box-shadow:0 0 0 2px #d9ecfc}
+input[type=range]{accent-color:#0d559e;width:100%;cursor:pointer;margin:0 0 4px}
+.segment{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.segbtn{font-size:12px;color:#40526d;background:#fff;border:1px solid var(--stroke);border-radius:9px;padding:9px 5px}.segbtn.active{color:#114e91;border-color:#397bbd;background:#eff6ff;font-weight:800}
+.divider{border-top:1px solid var(--stroke);margin:15px 0}
+.output-grid{display:grid;gap:8px}.export{padding:11px;display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;border:1px solid #cad9e9;color:#174479;border-radius:10px;font-size:13px;font-weight:700}.export.primary{background:#0d508f;border-color:#0d508f;color:#fff}.export:hover{filter:brightness(.97)}.export:disabled{cursor:not-allowed;opacity:.55}
+.ico{width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-size:14px}.fineprint{font-size:11px;color:#68788d;line-height:1.8;margin-top:12px}
+.help{margin-top:12px;line-height:1.8;color:#6b7a8d;font-size:12px}
+@media(max-width:1000px){.main{grid-template-columns:1fr}.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}.side .panel:last-child{grid-column:span 2}}
+@media(max-width:650px){.main{padding:10px;gap:12px}.preview-panel,.panel{padding:12px}.side{grid-template-columns:1fr}.side .panel:last-child{grid-column:span 1}.top{padding:12px}.brand h1{font-size:16px}.preview-scroll{padding:7px}.artboard{min-width:280px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="brand"><div class="logo">ART</div><div><h1>手绘线稿 · SVG 调色工作台</h1><p>纯本地 · 完全离线 · 内置高清线稿 · 可导出 SVG 和 4K PNG</p></div></div>
+  <div class="top-actions"><input type="file" id="fileInput" accept=".svg,image/svg+xml" hidden><button id="openFile" type="button">载入其他 SVG</button><button id="resetBtn" type="button">恢复默认配色</button></div></header>
+<main class="main">
+ <section class="preview-panel"><div class="section-head"><div><h2>实时预览</h2><div class="small" id="sourceNote">正在加载内置的 __ARTWORK_TITLE__ …</div></div><div class="zoom"><button id="zoomOut" title="缩小预览" aria-label="缩小">−</button><output id="zoomLabel">100%</output><button id="zoomIn" title="放大预览" aria-label="放大">＋</button><button id="zoomFit" title="适合窗口" aria-label="适合窗口">适配</button></div></div>
+  <div class="preview-scroll" id="previewScroll"><div class="artboard" id="artboard"><div class="svg-holder" id="svgHolder"></div><div class="empty-loader" id="loading">加载矢量路径中，请稍候…</div></div></div>
+  <div class="captionline"><span>画面比例 16:9 · 目标输出 3840 × 2160</span><span id="svgStats">SVG 真实矢量路径</span></div>
+  <div class="status"><span class="dot wait" id="statusDot"></span><span id="statusText">准备中</span></div>
+  <div class="notice"><strong>适配白色 PPT 的关键：</strong>选择「白底浅灰（用户定稿）」，然后通过「线条颜色」与「线条可见度」细调。保留原图线条与构图；调色不会修复生成内容中的事实错误。预览背景只影响画布显示；导出透明文件时背景会完全移除。</div>
+ </section>
+ <aside class="side">
+  <section class="panel"><h3>① 推荐配色</h3><div class="preset-grid" id="presets">
+   <button class="preset active" data-preset="whiteGray" type="button"><span class="swatch" style="background:#aeb0b2"></span>白底浅灰（用户定稿）</button>
+   <button class="preset" data-preset="gentleGray" type="button"><span class="swatch" style="background:#89929a"></span>白底柔和灰</button>
+   <button class="preset" data-preset="charcoal" type="button"><span class="swatch" style="background:#424951"></span>白底深灰</button>
+   <button class="preset" data-preset="blueGray" type="button"><span class="swatch" style="background:#63768c"></span>典雅蓝灰</button>
+   <button class="preset" data-preset="blackFine" type="button"><span class="swatch" style="background:#aeb7bf"></span>黑底细灰</button>
+   <button class="preset" data-preset="original" type="button"><span class="swatch" style="background:#fff"></span>原稿灰白</button>
+  </div><p class="micro">配色仅改变矢量线条，不改变建筑轮廓、湖面倒影和文字。</p></section>
+  <section class="panel"><h3>② 精细调整</h3>
+   <div class="form-row"><label for="color">线条颜色</label><span class="val" id="hexReadout">#AEB0B2</span></div>
+   <div class="colorline"><input type="color" id="color" value="#aeb0b2" aria-label="选择线条颜色"><input id="hex" type="text" spellcheck="false" maxlength="7" value="#AEB0B2" aria-label="输入十六进制颜色"></div>
+   <div class="form-row"><label for="intensity">线条可见度</label><span class="val" id="intensityReadout">1.15×</span></div>
+   <input id="intensity" type="range" min="0.25" max="15" step="0.05" value="1.15" /><p class="micro">提高可见度可让浅灰细节在白底上更清楚；值过大会损失明暗层次。</p>
+   <div class="form-row"><label for="detail">细节层次</label><span class="val" id="detailReadout">主线突出</span></div>
+   <input id="detail" type="range" min="0.5" max="1.8" step="0.05" value="1.65"/><p class="micro">偏左保留更多浅色线条；偏右强化主线条，减弱细碎纹理。</p>
+   <div class="divider"></div>
+   <div class="form-row">预览背景<span class="val" id="bgLabel">白色</span></div><div class="segment" id="bgModes"><button type="button" class="segbtn" data-bg="transparent">透明</button><button type="button" class="segbtn active" data-bg="white">白色</button><button type="button" class="segbtn" data-bg="black">黑色</button></div>
+  </section>
+  <section class="panel"><h3>③ 导出文件</h3><div class="output-grid">
+    <button class="export primary" id="pngTransparent">↓ 导出透明底 PNG · 4K</button>
+    <button class="export" id="pngBackground">↓ 导出当前背景 PNG · 4K</button>
+    <button class="export primary" id="svgTransparent">↓ 导出透明底 SVG · 矢量</button>
+    <button class="export" id="svgBackground">↓ 导出当前背景 SVG · 矢量</button>
+  </div><div class="fineprint">SVG 保留原始矢量路径及其透明度层次，支持继续在 PowerPoint、Illustrator、Inkscape 中编辑。PNG 输出为真正的 3840 × 2160 像素，像素尺寸为 3840 × 2160；不代表原图原生 4K，亦不创造新的真实细节。</div></section>
+ </aside>
+</main>
+<script id="embeddedSvg" type="application/octet-stream">__EMBED_SVG_GZIP_BASE64__</script>
+<script id="embeddedPng" type="application/octet-stream">__EMBED_PNG_BASE64__</script>
+<script>
+__EDITOR_JS__
+</script>
+</body></html>
