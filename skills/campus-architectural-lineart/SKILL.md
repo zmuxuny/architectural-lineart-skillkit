@@ -1,110 +1,53 @@
 ---
 name: campus-architectural-lineart
-description: Build photo-grounded architectural line-art from independently checked real building photographs, with evidence manifests, reference sheets, image-conditioned generation, per-feature human review and hash-bound approval. Use when a school/landmark illustration must minimize invented structures before SVG conversion.
+description: Create photo-grounded architectural line art through evidence-backed web/photo retrieval, per-building reference-image generation, conservative Agent visual audit, targeted retries, compositing and transparent SVG export. Use when a real campus or named building must not be invented or structurally misrepresented.
 license: MIT
 metadata:
-  version: "2.0"
+  version: "1.1"
 ---
 
-# Photo-grounded architectural line art · evidence-first generation
+# Campus architectural line art — **Agent-first evidence + vision review**
 
-**Do not equate beautiful AI line art with actual architecture.** This Skill has **fail-closed reference and review gates**. Code validates evidence completeness and tampering; **only a real reviewer comparing images** can judge the architecture. It is not an architectural authenticity oracle or a native image-generation engine.
+**Produce attractive drawings without treating AI's visual plausibility as architectural fact.** This skill orchestrates tools; its Python scripts do not include an image-generation model. The Agent must use an available reference-image generation/edit tool with actual image attachments; if unavailable, stop with an evidence packet.
 
-## Mission and non-negotiable constraints
+## One-time workflow (with limited human intervention)
 
-- Preserve a real landmark's visible roof form, geometry, door/arch count, facade and tower placement **as shown in licensed source photos**. Do not fill unseen geometry based on model priors.
-- Require **at least two genuine photos of each landmark from different angles**. Each reference needs a real source page/ownership, an original image, copyright/derivative-use review, human attestation and enough pixels. No scraped thumbnails, model-generated "photos," or cropping the same shot twice to manufacture independent views.
-- Text is special: do **not** ask the image model to spell university/landmark names. Keep sign panels empty and use a separately sourced, verified and permitted official mark or add text in the presentation tool after generation.
-- A multi-location composition is an **illustrative montage**; it must not be presented as a real campus viewpoint. For geometry faithful to one photo, prefer **manual/photo-traced vector design** instead of unconstrained generative recreation.
-- The source photo pixels AND a separate style reference must actually be attached to an image-capable generator. Merely passing photo names or textual summaries **does not ground a model**.
-- If evidence, image input access, or subsequent feature-level human review is missing, **stop rather than assert success**.
+1. **Ground identity and rights**. Parse user style/reference. Search official source pages and photo repositories for each exact building. Open original photo pages, check names, known roofs/arches/entrances, locate two genuinely different viewpoints, note photographer and permission to produce derivatives. Prefer high-resolution originals to search thumbnails; don't copy unlicensed images to public GitHub. Read [photo sourcing](references/photo-sourcing.md). Agent may create *agent-attested* source records for publicly licensed images, with source/rights evidence URLs and model-call IDs; do **not** claim a human reviewed anything unless a person did. User-owned or ambiguous-license photos must be authorized by their owner. Photo/feature fields have a [schema](references/evidence-schema.md).
+2. **Lock photo and shape evidence.** Run `scripts/reference_pipeline.py template` for a starter manifest; replace all placeholders with actually observed information. Record per-building `primary_view_id`, `must_match` features with photo IDs and optional per-view bboxes, forbidden inventions and unknown/unseen features. Record image-input model/call IDs for any agent-provenanced checks. Then run `scripts/reference_pipeline.py prepare`. Any rejection means return to sourcing; no synthetic attestation fields just to pass.
+3. **Reference-conditioned visual generation.** For each building, **actually attach** its own original-photo pixels and style-only reference plus available feature crops to an image-capable generator. Pass [prompt contract](references/prompt-recipe.md) + `generation-brief.md`. Never pass filenames or a purely text description in lieu of photos. Preserve one camera anchor, do not mix multiple views into a fabricated facade; use a clean transparent cutout with **no generated official text**. Record the real model invocation and output SHA256 in `generation-log.json` per building. See [Agent audit protocol](references/agent-audit.md).
+4. **Optional multi-building composition.** After per-building first visual checks, arrange approved cutouts using `scripts/compose.py` and an explicit [layout](references/compositing.md). This is alpha compositing only; it never adds invented towers or new facades. If buildings are on different campuses, label artwork as an *illustrative montage*, not a factual site photograph.
+5. **Agent automatically reviews using actual image inputs**. Run `scripts/agent_audit.py` either with an `OPENAI_API_KEY` (two structured vision calls per building through Responses API), or with `--provider agent-json` where a vision-enabled Agent separately inspects the candidate and original photos twice, saving both structured reports. Inspect each `must_match`, unsupported geometry, model-created text and viewpoint consistency. If any score is under 0.90, mismatch, missing photo ID or conflicting assessment, return `needs_review` rather than manufacturing a pass. Agent output is explicitly machine-assessed, not human-certified.
+6. **Targeted repair and escalation.** Read `retry-brief.md` and correct **only the building** with mismatches using cited original/cropped photos. Update `generation-log.json` and rerun both audits. Maximum 2 image-edit/audit retries per problematic building before escalating precise unresolved points to a human. `photo-faithful` mode normally requires a human review (optional `--permit-photo-faithful-auto` opts into lower assurance). Official logos/inscriptions and legal rights are always separately sourced/licensed.
+7. **Deliver only supported output.** If `agent-review.json` says `agent_pass` and `approval.json` says `approved`, pass `--approval` to `raster-to-layered-svg/scripts/convert.py`, then build the offline HTML editor. Preserve final evidence/agent reports, visual inputs and hash provenance. If blocked, deliver the reference packet and outstanding questions rather than calling unreviewed art accurate.
 
-## 0. Source collection and verification
-
-Read [photo selection protocol](references/photo-sourcing.md), [human checklist](references/reference-checklist.md) and [image-tool prompt contract](references/prompt-recipe.md). Search official school pages, original licensed photographs and users' own photos. Match **building identity and viewpoint**, not visual resemblance. Set a single `primary_view_id` as the camera anchor for each building; the second angle is evidence for verifying details, not permission to mix viewpoints. Check source attribution, license, photographer, location, zoomable original, structure, and any potential photo manipulations; record every original page URL and local source file in a manifest. Source-page authenticity and camera viewpoint are not reliably machine-provable; ask the human to verify.
-
-```bash
-python skills/campus-architectural-lineart/scripts/reference_pipeline.py template \
-    --output workspace/project.json
-```
-
-Fill `project.json`; the initial template is **deliberately NOT approved**. It uses `photos/*.jpg` and `style_reference`. The precise schema is in [working example and guide](references/evidence-schema.md). Obtain original photo files yourself or use the allowlisted HTTPS download helper:
+## Commands
 
 ```bash
-python skills/campus-architectural-lineart/scripts/reference_pipeline.py fetch \
-    --manifest workspace/project.json \
-    --allow-host upload.wikimedia.org \
-    --allow-host www.zju.edu.cn
-```
-
-`fetch` validates image bytes but **does not assert that a website's caption or license is true**. Do not flip `human_confirmed_photo`, `derivatives_allowed`, `source_verified_by`, or `visible_and_human_verified` to `true` until an actual person checked those claims against the original sources.
-
-## 1. Lock reference evidence before generation
-
-```bash
+python skills/campus-architectural-lineart/scripts/reference_pipeline.py template --output workspace/project.json
 python skills/campus-architectural-lineart/scripts/reference_pipeline.py prepare \
-    --manifest workspace/project.json --out-dir workspace/grounding
-```
+  --manifest workspace/project.json --out-dir workspace/grounding
 
-If rejected, inspect `workspace/grounding/preflight-report.json`, obtain better photos or clarify architecture, and retry. Never weaken thresholds or fabricate records to make the gate pass.
+# Agent actually calls image-generation tool using source photo pixels,
+# saves workspace/artwork/final.png & actual workspace/artwork/generation-log.json.
+# For multi-building art also save workspace/artwork/cutouts/<building-id>.png.
 
-Passing results produce:
+python skills/campus-architectural-lineart/scripts/agent_audit.py \
+  --provider openai --model gpt-4.1 \
+  --manifest workspace/project.json \
+  --evidence-lock workspace/grounding/evidence-lock.json \
+  --generation-log workspace/artwork/generation-log.json \
+  --image workspace/artwork/final.png \
+  --feature-crops-dir workspace/grounding/feature-crops \
+  --output-dir workspace/artwork/agent-audit
 
-- `reference-board.png`: actual original-photo montage with source IDs and camera angles.
-- `feature-crops/<building>/<feature>__<view>.png`: *evidence* crop(s) for locked architectural features.
-- `evidence-lock.json`: hashes of the manifest, source photos and style image.
-- `generation-brief.md`: actual model-input contract plus proven/not-visible/forbidden features.
-- `review-template.json`: initially all `unknown`, forcing an explicit post-generation review.
-
-## 2. Generate, with **actual reference image input**
-
-1. Give the image model the **raw source photo images**, not just the board or textual descriptions. Include the style image as a distinct style-only conditioning reference. Use photo IDs from `generation-brief.md` when recording attachments.
-2. **Render one identifiable building at a time** using that building's two or more photo angles plus style reference. Request a clean transparent cutout with preserved visible geometry, no additional building elements or lettering. Where tool input limits apply, do not silently drop images: reduce the scope to one building or stop.
-3. Inspect the output against the attached photos. If a real feature deviates, supply feature close-ups and revise **that building**, or use manual photo-based tracing. Do not invent a backside, new arch count or upper tower to fill a nice composition.
-4. Only after individual buildings pass a preliminary human inspection, arrange them by explicit placement using `scripts/compose.py` (see [montage guide](references/compositing.md)). This is deterministic alpha compositing, not generative stitching. One-camera `photo-faithful` mode skips montage and uses the actual single building viewpoint.
-5. Save the exact generated PNG; record which reference photos the tool actually received **per building**. Record its native resolution and avoid calling upsampling "native 4K".
-
-The Skill intentionally has no fake `generate_image()` Python function; the **Agent must invoke its available multimodal generation/editing tool and inspect the returned artwork**. If none exists, deliver the generation packet and stop. This is different from `raster-to-layered-svg`, which is fully deterministic.
-
-## 3. Mandatory post-generation truthfulness audit
-
-Copy `review-template.json` to a new `review.json`. An independent human reviewer must compare output against each referenced **actual photo** and mark each feature `pass`/`fail`/`unknown`. Document meaningful observations. Record a real image model/tool call, global attached source image IDs, and **per-building model call image IDs**. Passing merely because the illustration "looks like a campus" is prohibited.
-
-```bash
-python skills/campus-architectural-lineart/scripts/reference_pipeline.py audit \
-    --manifest workspace/project.json \
-    --evidence-lock workspace/grounding/evidence-lock.json \
-    --image workspace/artwork/final.png \
-    --review workspace/artwork/review.json \
-    --output workspace/artwork/approval.json
-```
-
-Any `unknown`/`fail`, missing source photo image-input evidence, incorrect text, invented geometry, missing source comparison note or changed photo bytes cause **blocked** status. Keep rejection results visible, revise artwork and repeat review. Passing produces `approval.json` bound to the **exact PNG SHA-256** and reference evidence. Human attestations are not algorithmic guarantees of visual fidelity.
-
-## 4. Only then vectorize and deliver HTML
-
-```bash
 python skills/raster-to-layered-svg/scripts/convert.py \
   --input workspace/artwork/final.png \
-  --approval workspace/artwork/approval.json \
+  --approval workspace/artwork/agent-audit/approval.json \
   --out-dir workspace/dist --size 3840x2160
-
-python skills/offline-svg-color-workbench/scripts/build.py \
-  --svg workspace/dist/lineart.svg \
-  --png workspace/dist/lineart-transparent.png \
-  --output workspace/dist/workbench.html
 ```
 
-The `--approval` option checks the exact artwork hash and required human evidence. Generic raster-to-SVG users may omit it, but **do not omit it within this photo-grounded workflow**.
+Provide `--cutouts-dir workspace/artwork/cutouts` to `agent_audit.py` if >1 landmark. See [complete automatic and native Agent review commands](references/agent-audit.md) and [source checking guide](references/reference-checklist.md).
 
-## Failures that must block a "verified" claim
+## Truthfulness / assurance boundary
 
-- Reference images come only from thumbnails, a different building, one reused image, a 1024px screenshot, unclear rights, or no independent second viewpoint.
-- The model was prompted with landmark names rather than actually given original photograph pixels; a total reference list does not substitute for evidence **per rendered landmark**.
-- Additional towers, bridges, unreadable/incorrect official inscriptions, new wings, a different roof/arch count, or invented surrounding buildings appear.
-- Reference views disagree and the ambiguity is hidden instead of reported; the model fills behind-the-camera space not visible in photos.
-- A user demands exact geometry and image generation cannot preserve it. **Return to photo-guided manual tracing** with direct side-by-side human verification.
-
-## Existing demo is not architecture-certified
-
-The Zhejiang University example in this repository is an older **AI-generated illustrative composite**. It predates the evidence gate and does **not** have a compliant photo packet, per-building model input logs and feature-level approval. Do not retrofit or invent approvals for it. The new skill will reject that case as "unverified" if treated as an accuracy-critical image.
+Source-page, copyright and geometric identity cannot be cryptographically proven by prompt text, a hash or a model confidence score. An agent-generated verification declaration is **not a human review**. Two VLM passes can make correlated errors. Built-in checks enforce *evidence presence, consistency and fail-closed workflow*, not a guarantee that the artwork depicts real architecture exactly. The existing Zhejiang University example predates this protocol and remains an **unverified artistic montage**; do not create fake approvals for it.

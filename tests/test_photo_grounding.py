@@ -8,7 +8,9 @@ import tempfile
 import unittest
 from PIL import Image, ImageDraw
 
+
 ROOT = Path(__file__).resolve().parent.parent
+
 
 def load_script(relative):
     file=ROOT/relative
@@ -18,9 +20,11 @@ def load_script(relative):
     spec.loader.exec_module(mod)
     return mod
 
+
 p=load_script('skills/campus-architectural-lineart/scripts/reference_pipeline.py')
 c=load_script('skills/campus-architectural-lineart/scripts/compose.py')
 v=load_script('skills/raster-to-layered-svg/scripts/convert.py')
+
 
 class PhotoGroundingTests(unittest.TestCase):
     def setUp(self):
@@ -60,20 +64,24 @@ class PhotoGroundingTests(unittest.TestCase):
                           'official_marks':[]}]}
         self.save_manifest()
 
+
     def make_view(self,angle):
         return {'id':angle,'file':f'photos/b_{angle}.png','source_page':'user-owned','original_url':'',
                 'photographer':'synthetic test script','license':'user-owned','derivatives_allowed':True,
                 'human_confirmed_photo':True,'source_verified_by':'TEST SIMULATION ONLY','view_angle':angle}
 
+
     def save_manifest(self):
         self.manifest_file=self.root/'project.json'
         p.write_json(self.manifest_file,self.manifest)
+
 
     def prepare(self):
         dest=self.root/'pack'
         ret=p.run_prepare(self.manifest_file,dest)
         self.assertEqual(ret,0)
         return dest
+
 
     def approved_review(self,pack):
         r=p.read_json(pack/'review-template.json')
@@ -87,12 +95,14 @@ class PhotoGroundingTests(unittest.TestCase):
         p.write_json(review,r)
         return review
 
+
     def test_template_is_fail_closed(self):
         dest=self.root/'template.json'
         p.template(dest)
         result=p.check_project(dest)
         self.assertEqual(result['status'],'blocked')
         self.assertTrue(any('source_verified_by' in s for s in result['errors']))
+
 
     def test_prepare_evidence_crops_and_prompt(self):
         pack=self.prepare()
@@ -106,6 +116,7 @@ class PhotoGroundingTests(unittest.TestCase):
         self.assertIn('NO LEGIBLE OR OFFICIAL TEXT',txt)
         self.assertEqual(p.read_json(pack/'review-template.json')['global_checks']['no_invented_text'],'unknown')
 
+
     def test_identical_photo_and_angle_blocked(self):
         b=self.manifest['landmarks'][0]
         b['photos'][1]['file']=b['photos'][0]['file']
@@ -116,6 +127,7 @@ class PhotoGroundingTests(unittest.TestCase):
         self.assertTrue(any('same photo content' in x for x in r['errors']))
         self.assertTrue(any('camera angles' in x for x in r['errors']))
 
+
     def test_low_res_and_missing_rights_blocked(self):
         Image.new('RGB',(400,200),'blue').save(self.root/'photos/b_front.png')
         self.manifest['landmarks'][0]['photos'][0]['derivatives_allowed']=False
@@ -124,6 +136,7 @@ class PhotoGroundingTests(unittest.TestCase):
         self.assertTrue(any('insufficient native resolution' in x for x in r['errors']))
         self.assertTrue(any('derivatives_allowed' in x for x in r['errors']))
 
+
     def test_no_attached_real_pixels_audit_fails(self):
         pack=self.prepare()
         illustration=self.root/'generated.png'
@@ -131,6 +144,7 @@ class PhotoGroundingTests(unittest.TestCase):
         review=pack/'review-template.json'
         self.assertEqual(p.run_audit(self.manifest_file,pack/'evidence-lock.json',illustration,review,self.root/'approval.json'),3)
         self.assertEqual(p.read_json(self.root/'approval.json')['status'],'blocked')
+
 
     def test_approved_then_tampered_image_rejected(self):
         pack=self.prepare()
@@ -141,8 +155,9 @@ class PhotoGroundingTests(unittest.TestCase):
         self.assertEqual(p.run_audit(self.manifest_file,pack/'evidence-lock.json',image,review,approval),0)
         v.assert_approved_image(image,approval)
         Image.new('RGB',(1672,941),(30,30,30)).save(image)
-        with self.assertRaisesRegex(ValueError,'changed after human review'):
+        with self.assertRaisesRegex(ValueError,'changed after review'):
             v.assert_approved_image(image,approval)
+
 
     def test_tampered_evidence_blocks_audit(self):
         pack=self.prepare()
@@ -154,6 +169,7 @@ class PhotoGroundingTests(unittest.TestCase):
         im.putpixel((0,0),(0,0,0));im.save(self.root/'photos/b_front.png')
         self.assertEqual(p.run_audit(self.manifest_file,pack/'evidence-lock.json',image,review,self.root/'approval.json'),3)
         self.assertTrue(any('changed' in x or 'invalid' in x for x in p.read_json(self.root/'approval.json')['problems']))
+
 
     def test_per_landmark_image_inputs_required_even_if_global_union_present(self):
         pack=self.prepare()
@@ -167,6 +183,7 @@ class PhotoGroundingTests(unittest.TestCase):
         approval=self.root/'approval.json'
         self.assertEqual(p.run_audit(self.manifest_file,pack/'evidence-lock.json',image,review,approval),3)
         self.assertTrue(any('per-building image input omitted' in x for x in p.read_json(approval)['problems']))
+
 
     def test_multi_angle_feature_bounding_boxes_must_be_per_photo(self):
         f=self.manifest['landmarks'][0]['must_match'][0]
@@ -182,10 +199,12 @@ class PhotoGroundingTests(unittest.TestCase):
         self.assertTrue((pack/'feature-crops/BuildingA/roof__front.png').is_file())
         self.assertTrue((pack/'feature-crops/BuildingA/roof__side.png').is_file())
 
+
     def test_primary_view_is_mandatory(self):
         self.manifest['landmarks'][0].pop('primary_view_id')
         self.save_manifest()
         self.assertTrue(any('primary_view_id' in x for x in p.check_project(self.manifest_file)['errors']))
+
 
     def test_needs_https_and_allowlist_for_fetch(self):
         with self.assertRaises(ValueError):
@@ -193,6 +212,7 @@ class PhotoGroundingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             p.fetch_original('https://example.com/photo.jpg',{'othersite.net'})
         self.assertEqual(p.run_fetch(self.manifest_file,[],True,False),2)
+
 
     def test_compositor_strict_cutouts(self):
         cut=Image.new('RGBA',(350,240),(0,0,0,0))
@@ -210,4 +230,7 @@ class PhotoGroundingTests(unittest.TestCase):
         p.write_json(lay,data)
         with self.assertRaises(ValueError):c.compose(lay,out)
 
+
 if __name__=='__main__':unittest.main()
+
+

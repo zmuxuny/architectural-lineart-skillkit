@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Convert line-art raster to transparent 4K PNG and genuine multilayer SVG paths.
 
+
 No AI or geometric reconstruction takes place in this file. SVG paths are
 polygonal contour tracing of raster threshold masks, NOT artist strokes.
 """
@@ -15,8 +16,10 @@ import numpy as np
 import cv2
 from PIL import Image
 
+
 DEFAULT_THRESHOLDS = [6, 14, 26, 42, 62, 85, 112, 142, 174, 207, 237]
 DEFAULT_TARGETS = [11, 20, 34, 52, 74, 99, 127, 158, 191, 222, 255]
+
 
 def dims(spec: str) -> tuple[int,int]:
     try: w, h = [int(x) for x in spec.lower().replace('×','x').split('x')]
@@ -24,12 +27,14 @@ def dims(spec: str) -> tuple[int,int]:
     if not 1 <= w <= 16000 or not 1 <= h <= 16000: raise argparse.ArgumentTypeError('Size out of bounds (1..16000)')
     return w,h
 
+
 def load_luminance(src: Path, mode: str) -> np.ndarray:
     with Image.open(src) as im:
         raw = np.asarray(im.convert('RGB'))
     gray = cv2.cvtColor(raw, cv2.COLOR_RGB2GRAY)
     if mode == 'dark-on-light': gray = 255-gray
     return gray
+
 
 def transparent_png(gray: np.ndarray, size: tuple[int,int], cutoff: float=2, gamma: float=1) -> Image.Image:
     alpha=np.clip((gray.astype(np.float32)-cutoff)/(255-cutoff),0,1)
@@ -39,6 +44,7 @@ def transparent_png(gray: np.ndarray, size: tuple[int,int], cutoff: float=2, gam
     rgba=Image.new('RGBA',size,(255,255,255,0))
     rgba.putalpha(pil)
     return rgba
+
 
 def fill_evenodd_paths(gray: np.ndarray, threshold: int, zoom: int, epsilon:float) -> tuple[str,int]:
     height,width=gray.shape
@@ -54,6 +60,7 @@ def fill_evenodd_paths(gray: np.ndarray, threshold: int, zoom: int, epsilon:floa
         coord += [f'{x/zoom:g},{y/zoom:g}' for x,y in poly[1:]]
         coord.append('Z');paths.append(' '.join(coord));count+=1
     return ' '.join(paths),count
+
 
 def vectorize(gray: np.ndarray, out: Path, title: str, target_size:tuple[int,int],
               thresholds=DEFAULT_THRESHOLDS, targets=DEFAULT_TARGETS, zoom:int=2,epsilon:float=0.48,
@@ -80,8 +87,10 @@ def vectorize(gray: np.ndarray, out: Path, title: str, target_size:tuple[int,int
         f.write('</svg>\n')
     return len(thresholds),count
 
+
 def assert_approved_image(image: Path, approval: Path) -> None:
     """Reject stale/unreviewed generated artworks in factual architectural workflows.
+
 
     Generic user-supplied illustrations remain supported without this flag; the
     photo-grounded campus Skill MUST supply --approval before vectorization.
@@ -96,7 +105,9 @@ def assert_approved_image(image: Path, approval: Path) -> None:
         for chunk in iter(lambda:f.read(1048576),b''):
             h.update(chunk)
     if doc.get('image_sha256')!=h.hexdigest():
-        raise ValueError('image bytes changed after human review: approval does not match')
+        raise ValueError('image bytes changed after review: approval does not match')
+
+
 
 
 def main():
@@ -111,7 +122,7 @@ def main():
     p.add_argument('--zoom',type=int,choices=(1,2,3),default=2,help='Upsampling before contour tracing')
     p.add_argument('--epsilon',type=float,default=0.48,help='Contour simplification in enlarged pixels')
     p.add_argument('--skip-svg',action='store_true')
-    p.add_argument('--approval',type=Path,help='Human-audited approval JSON bound to the exact input image; mandatory for photo-grounded landmark workflows')
+    p.add_argument('--approval',type=Path,help='Evidence-backed human or agent-reviewed approval JSON bound to the exact image')
     a=p.parse_args()
     if not a.input.is_file():p.error(f'Input does not exist: {a.input}')
     if not 0<=a.cutoff<255:p.error('--cutoff must be [0,255)')
@@ -133,3 +144,5 @@ def main():
         print(f'Created {p_svg}: {levels} layers, {contours} closed contours',file=sys.stderr)
     print('NOTE: output size is 4K canvas only; native source detail is not magically increased.',file=sys.stderr)
 if __name__=='__main__': main()
+
+

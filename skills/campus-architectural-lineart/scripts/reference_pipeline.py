@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 """Evidence-gated photo-to-lineart orchestration; DOES NOT claim to generate images.
 
+
 Commands:
   template   Create an explicitly incomplete project manifest
   fetch      Download *declared original* photographs from allowlisted HTTPS hosts
   prepare    Validate evidence and construct contact sheets + grounded generation packet
   audit      Validate human review and bind its approval to the generated image hash
 
+
 Design boundary: source provenance and photo-to-artwork structural fidelity require
 human verification. Automated gates check that evidence/review exist, not that
 human assertions are true. No hidden CoT, image model, or OCR is used here.
 """
 from __future__ import annotations
+
 
 import argparse
 import hashlib
@@ -28,7 +31,9 @@ from urllib.request import Request, build_opener, HTTPRedirectHandler
 from pathlib import Path
 from typing import Any
 
+
 from PIL import Image, ImageDraw, ImageFont, UnidentifiedImageError
+
 
 VERSION = "2.0"
 MIN_PIXELS = 1_500_000
@@ -40,6 +45,8 @@ SAFE_ID = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{1,63}$")
 REVIEW_STATUSES = {"pass", "fail", "unknown"}
 
 
+
+
 def sha_file(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -48,12 +55,18 @@ def sha_file(path: Path) -> str:
     return h.hexdigest()
 
 
+
+
 def sha_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+
+
 def canonical_json(obj: Any) -> bytes:
     return (json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+
+
 
 
 def write_json(path: Path, obj: Any) -> None:
@@ -61,11 +74,15 @@ def write_json(path: Path, obj: Any) -> None:
     path.write_bytes(json.dumps(obj, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8") + b"\n")
 
 
+
+
 def read_json(path: Path) -> dict:
     v = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(v, dict):
         raise ValueError("JSON root must be an object")
     return v
+
+
 
 
 def safe_path(root: Path, name: str) -> Path:
@@ -80,11 +97,15 @@ def safe_path(root: Path, name: str) -> Path:
     return result
 
 
+
+
 def valid_https(url: str) -> bool:
     if not isinstance(url, str):
         return False
     parsed = urlparse(url)
     return parsed.scheme == "https" and bool(parsed.hostname) and parsed.username is None and parsed.password is None
+
+
 
 
 def load_photo(path: Path) -> tuple[Image.Image, dict]:
@@ -99,6 +120,8 @@ def load_photo(path: Path) -> tuple[Image.Image, dict]:
         return rgb, info
 
 
+
+
 def dhash(img: Image.Image) -> int:
     thumb = img.convert("L").resize((9, 8), Image.Resampling.LANCZOS)
     px = list(thumb.get_flattened_data() if hasattr(thumb, "get_flattened_data") else thumb.getdata())
@@ -109,8 +132,43 @@ def dhash(img: Image.Image) -> int:
     return bits
 
 
+
+
 def error(errors: list[str], message: str) -> None:
     errors.append(message)
+
+
+
+
+def agent_attestation_valid(record: dict, *, kind: str, required_ids: set[str] | None = None) -> bool:
+    """Validate existence of a structured AGENT report, not its objective truth.
+
+    Never set human_* booleans on the basis of an AI review. Permission and
+    attribution claims remain user/account responsibility when publishing.
+    """
+    att = record.get("agent_evidence")
+    if not isinstance(att, dict):
+        return False
+    confidence = att.get("confidence")
+    if (isinstance(confidence, bool) or not isinstance(confidence, (float, int)) or
+        not 0.92 <= confidence <= 1):
+        return False
+    if (not str(att.get("model", "")).strip() or not str(att.get("call_id", "")).strip() or
+            not isinstance(att.get("observation"), str) or len(att["observation"].strip()) < 30):
+        return False
+    if kind == "photo":
+        if record.get("source_page") == "user-owned":
+            return False  # Only the user can license their own private original.
+        if not all(att.get(k) is True for k in
+                   ("source_page_checked", "building_identity_checked", "license_checked")):
+            return False
+        if not valid_https(att.get("license_evidence_url", "")):
+            return False
+    if kind == "feature":
+        inputs = att.get("image_input_ids") or []
+        if not isinstance(inputs, list) or not required_ids or not required_ids.intersection(inputs):
+            return False
+    return True
 
 
 def check_project(manifest_file: Path) -> dict:
@@ -125,6 +183,7 @@ def check_project(manifest_file: Path) -> dict:
     evidence_phash: dict[str, int] = {}
     global_photo_shas: dict[str, str] = {}
 
+
     if project.get("schema_version") != 1:
         error(problems, "schema_version must equal 1")
     meta = project.get("project", {})
@@ -137,6 +196,7 @@ def check_project(manifest_file: Path) -> dict:
         error(problems, "project.aspect_ratio must be '16:9' for this release")
     if not (isinstance(meta.get("upper_blank_fraction"), (float, int)) and 0.45 <= meta["upper_blank_fraction"] <= 0.8):
         error(problems, "project.upper_blank_fraction must be 0.45..0.8")
+
 
     style = project.get("style_reference", "")
     if not style:
@@ -153,6 +213,7 @@ def check_project(manifest_file: Path) -> dict:
                 photos.append({"kind": "style", "id": "style", "relative_path": style, "sha256": sha_file(image_path), **info})
         except (OSError, ValueError, UnidentifiedImageError) as exc:
             error(problems, f"style reference invalid: {exc}")
+
 
     landmarks = project.get("landmarks", [])
     if not isinstance(landmarks, list) or not landmarks:
@@ -194,9 +255,13 @@ def check_project(manifest_file: Path) -> dict:
             for k in ("photographer", "license", "source_verified_by", "view_angle"):
                 if not str(photo.get(k, "")).strip():
                     error(problems, f"{key}: missing {k}")
-            for k in ("human_confirmed_photo", "derivatives_allowed"):
-                if photo.get(k) is not True:
-                    error(problems, f"{key}: {k} must be explicitly true (human attestation, not automatic verification)")
+            if photo.get("derivatives_allowed") is not True:
+                error(problems, f"{key}: derivatives_allowed must be justified by license evidence")
+            agent_photo = photo.get("agent_confirmed_photo") is True and agent_attestation_valid(photo, kind="photo")
+            human_photo = photo.get("human_confirmed_photo") is True
+            if not (human_photo or agent_photo):
+                error(problems, f"{key}: require human_confirmed_photo or supported agent_evidence with original-source and license checks")
+            attestation_mode = "human" if human_photo else "agent" if agent_photo else "unverified"
             page = photo.get("source_page", "")
             if page != "user-owned" and not valid_https(page):
                 error(problems, f"{key}: source_page must be HTTPS or 'user-owned'")
@@ -225,12 +290,13 @@ def check_project(manifest_file: Path) -> dict:
                     if other_id.startswith(bid + ":") and (p_hash ^ old_hash).bit_count() <= 3:
                         error(problems, f"{key}: perceptually near-identical to {other_id}; supply genuinely different camera view")
                 evidence_phash[key] = p_hash
-                photos.append({"kind": "landmark", "id": key, "relative_path": path_name, "sha256": digest, "phash": f"{p_hash:016x}", **info})
+                photos.append({"kind": "landmark", "id": key, "relative_path": path_name, "sha256": digest, "phash": f"{p_hash:016x}", "attestation_mode": attestation_mode, **info})
                 accepted_angles.add(str(photo.get("view_angle", "")).strip().lower())
             except (OSError, ValueError, UnidentifiedImageError) as exc:
                 error(problems, f"{key}: cannot read photo: {exc}")
         if len(accepted_angles - {""}) < 2:
             error(problems, f"{bid}: two genuinely distinct labeled camera angles required")
+
 
         claims = building.get("must_match", [])
         if not isinstance(claims, list) or len(claims) < 2:
@@ -250,8 +316,11 @@ def check_project(manifest_file: Path) -> dict:
             known = {p.get("id") for p in views if isinstance(p, dict)}
             if not isinstance(refs, list) or not refs or set(refs) - known:
                 error(problems, f"{bid}:{fid}: photo_ids must cite available photo ids")
-            if not str(f.get("description", "")).strip() or f.get("visible_and_human_verified") is not True:
-                error(problems, f"{bid}:{fid}: need actual visible feature description and human verification")
+            human_feature = f.get("visible_and_human_verified") is True
+            agent_feature = (f.get("visible_and_agent_verified") is True and
+                             agent_attestation_valid(f, kind="feature", required_ids={f"{bid}:{x}" for x in refs} if isinstance(refs, list) else set()))
+            if not str(f.get("description", "")).strip() or not (human_feature or agent_feature):
+                error(problems, f"{bid}:{fid}: need a visible feature and human or structured agent visual evidence")
             boxes = f.get("bboxes")
             if boxes is not None and (not isinstance(boxes, dict) or set(boxes.keys()) - set(refs if isinstance(refs,list) else [])):
                 error(problems, f"{bid}:{fid}: bboxes keys must name evidence photo IDs")
@@ -284,11 +353,15 @@ def check_project(manifest_file: Path) -> dict:
     return {"version": VERSION, "status": "blocked" if problems else "ready", "manifest": str(manifest_file), "manifest_sha256": sha_file(manifest_file), "errors": problems, "warnings": warnings, "photos": photos, "features": features, "landmarks": sorted(landmark_ids)}
 
 
+
+
 def font(size: int):
     for path in ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
         if Path(path).is_file():
             return ImageFont.truetype(path, size)
     return ImageFont.load_default()
+
+
 
 
 def photo_board(manifest: dict, root: Path, out: Path) -> dict[str, str]:
@@ -327,6 +400,8 @@ def photo_board(manifest: dict, root: Path, out: Path) -> dict[str, str]:
             crops[f"{b['id']}:{feat['id']}:{p['id']}"] = str(file.relative_to(out))
     board.save(out / "reference-board.png")
     return crops
+
+
 
 
 def generation_packet(manifest: dict, report: dict, crops: dict[str, str]) -> str:
@@ -368,6 +443,8 @@ def generation_packet(manifest: dict, report: dict, crops: dict[str, str]) -> st
     return "\n".join(out) + "\n"
 
 
+
+
 def review_template(manifest: dict, evidence_digest: str) -> dict:
     return {
         "reviewer": "REPLACE_WITH_HUMAN_REVIEWER",
@@ -389,6 +466,8 @@ def review_template(manifest: dict, evidence_digest: str) -> dict:
     }
 
 
+
+
 def run_prepare(manifest_path: Path, output: Path) -> int:
     report = check_project(manifest_path)
     output.mkdir(parents=True, exist_ok=True)
@@ -408,6 +487,8 @@ def run_prepare(manifest_path: Path, output: Path) -> int:
     return 0
 
 
+
+
 def verify_lock(manifest_path: Path, lock: dict) -> list[str]:
     report = check_project(manifest_path)
     failures = report["errors"][:]
@@ -423,6 +504,8 @@ def verify_lock(manifest_path: Path, lock: dict) -> list[str]:
     if lock.get("evidence_sha256") != digest:
         failures.append("evidence-lock hash invalid or stale")
     return failures
+
+
 
 
 def run_audit(manifest_path: Path, evidence_path: Path, image_path: Path, review_path: Path, output: Path) -> int:
@@ -468,6 +551,7 @@ def run_audit(manifest_path: Path, evidence_path: Path, image_path: Path, review
         if required - refs:
             problems.append(f"{bid}: direct per-building image input omitted {sorted(required - refs)}")
 
+
     checks = review.get("global_checks", {})
     for key in ("no_unlisted_buildings", "no_invented_text", "viewpoint_or_montage_labeled", "style_and_layout_accepted"):
         if not isinstance(checks, dict) or checks.get(key) != "pass":
@@ -495,9 +579,13 @@ def run_audit(manifest_path: Path, evidence_path: Path, image_path: Path, review
     return 0
 
 
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
 
 
 def host_public(host: str) -> bool:
@@ -506,6 +594,8 @@ def host_public(host: str) -> bool:
     except socket.gaierror:
         return False
     return bool(infos) and all(ipaddress.ip_address(info[4][0]).is_global for info in infos)
+
+
 
 
 def fetch_original(url: str, allowed: set[str], max_bytes: int = MAX_BYTES) -> bytes:
@@ -541,6 +631,8 @@ def fetch_original(url: str, allowed: set[str], max_bytes: int = MAX_BYTES) -> b
     raise ValueError("too many redirects")
 
 
+
+
 def run_fetch(manifest_path: Path, allowed: list[str], dry_run: bool, overwrite: bool) -> int:
     manifest = read_json(manifest_path)
     root = manifest_path.resolve().parent
@@ -573,6 +665,8 @@ def run_fetch(manifest_path: Path, allowed: list[str], dry_run: bool, overwrite:
     return 0
 
 
+
+
 def template(path: Path) -> None:
     data = {
         "schema_version": 1,
@@ -596,6 +690,8 @@ def template(path: Path) -> None:
         ]
     }
     write_json(path, data)
+
+
 
 
 def main(argv=None) -> int:
@@ -630,5 +726,9 @@ def main(argv=None) -> int:
     return 1
 
 
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

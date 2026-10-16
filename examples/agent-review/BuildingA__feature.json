@@ -1,0 +1,83 @@
+{
+  "tool_call_id": "REPLACE_WITH_REAL_VISION_TOOL_CALL_ID",
+  "review_model": "REPLACE_WITH_ACTUAL_VISION_MODEL",
+  "image_ids_seen": [
+    "CANDIDATE:BuildingA",
+    "BuildingA:front",
+    "BuildingA:side"
+  ],
+  "report": {
+    "landmark_id": "BuildingA",
+    "features": [
+      {
+        "id": "roof",
+        "status": "unknown",
+        "confidence": 0.0,
+        "photo_ids": [
+          "front"
+        ],
+        "observation": "REPLACE with observed source-vs-candidate roof comparison",
+        "difference": "not yet reviewed"
+      },
+      {
+        "id": "main_door",
+        "status": "unknown",
+        "confidence": 0.0,
+        "photo_ids": [
+          "front"
+        ],
+        "observation": "REPLACE with observed source-vs-candidate door comparison",
+        "difference": "not yet reviewed"
+      }
+    ],
+    "checks": [
+      {
+        "id": "no_extra_geometry",
+        "status": "unknown",
+        "confidence": 0.0,
+        "photo_ids": [
+          "front"
+        ],
+        "observation": "REPLACE after actual visual inspection",
+        "difference": "not yet reviewed"
+      },
+      {
+        "id": "no_invented_text",
+        "status": "unknown",
+        "confidence": 0.0,
+        "photo_ids": [
+          "front"
+        ],
+        "observation": "REPLACE after actual visual inspection",
+        "difference": "not yet reviewed"
+      },
+      {
+        "id": "viewpoint_consistent",
+        "status": "unknown",
+        "confidence": 0.0,
+        "photo_ids": [
+          "front"
+        ],
+        "observation": "REPLACE after actual visual inspection",
+        "difference": "not yet reviewed"
+      },
+      {
+        "id": "no_unobserved_facades",
+        "status": "unknown",
+        "confidence": 0.0,
+        "photo_ids": [
+          "front"
+        ],
+        "observation": "REPLACE after actual visual inspection",
+        "difference": "not yet reviewed"
+      }
+    ],
+    "candidate_has_legible_text": false,
+    "overall_notes": "This is intentionally unverified schema illustration, not a real building audit"
+  },
+  "input_sha256": {
+    "CANDIDATE:BuildingA": "REPLACE_WITH_SHA256_OF_REAL_PIXEL_FILE",
+    "BuildingA:front": "REPLACE_WITH_SHA256_OF_REAL_PIXEL_FILE",
+    "BuildingA:side": "REPLACE_WITH_SHA256_OF_REAL_PIXEL_FILE"
+  }
+}
