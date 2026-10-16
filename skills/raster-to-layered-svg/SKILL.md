@@ -41,3 +41,7 @@ The skill's own `scripts/convert.py` works after copying just this skill directo
 ## Evidence-gated integration for factual landmarks
 
 When operating as the downstream stage of `campus-architectural-lineart`, do **not** accept unreviewed artwork. Add `--approval <reviewed-approval.json>` to the conversion command; the script rejects missing/blocked approvals or if the input image's SHA-256 no longer matches the human-audited artifact. The full photo-grounded process is documented in [`docs/PHOTO_GROUNDING.zh-CN.md`](../../docs/PHOTO_GROUNDING.zh-CN.md). Generic already-licensed artwork can still be vectorized without `--approval` when no factual building claim is being made.
+
+## v0.3 Agent-reviewed approvals
+
+When the preceding campus photo-grounded Skill has obtained unanimous, evidence-linked VLM reviews, use `--approval` exactly as for human approvals. Its JSON explicitly carries `review_mode: agent_vision_two_pass`, photo evidence hash and exact candidate-image hash. This is an agent decision, NOT official architecture certification. Never claim photo grounding for an input that skipped that evidence gate.

@@ -1,3 +1,10 @@
+## [0.3.0] - 2026-10-16
+
+- Agent-first sourcing records distinguish model findings from human signoff and require traceable original-photo/license evidence.
+- Added `agent_audit.py` for genuine image-input VLM calls or native multimodal Agent verdicts, two review passes, exact per-input SHA256, fail-closed approval and targeted repair brief.
+- Added agent vision examples, a full Chinese walkthrough and synthetic regression tests. No live VLM factual-accuracy benchmark has been performed.
+- Low-risk automated reviews are labelled Agent-reviewed; high-risk photo-faithful work escalates by default.
+
 ## [0.2.0] - 2026-10-16
 
 - Add `campus-architectural-lineart` photo-evidence CLI: original-photo provenance, minimum native resolution, distinct viewpoints and perceptual duplicate checks, feature crops, locked image hashes, grounded generation packet, and fail-closed human review.

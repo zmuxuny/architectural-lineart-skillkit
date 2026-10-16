@@ -31,3 +31,7 @@ This checklist complements the executable `reference_pipeline.py` gate. Checkbox
 - [ ] Downstream SVG conversion included `--approval` (mandatory for this workflow).
 
 The old Zhejiang University repo demo is illustrative art with **no verified compliance record**. It must not be relabeled as architecturally verified.
+
+## v0.3: Agent-first low-touch review
+
+For ordinary illustrations, let an image-capable Agent examine original photos and record evidence and call IDs without pretending a human signed off. After creation, run two actual image-aware architectural comparisons using [agent_audit.py](../scripts/agent_audit.py): every feature must cite photo IDs, notes and high confidence; any conflict or missing pixels escalates. Human review is reserved for unresolved/high-risk claims, official wordmarks or unclear licenses. See [Agent audit documentation](agent-audit.md).

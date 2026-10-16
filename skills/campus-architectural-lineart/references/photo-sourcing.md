@@ -25,3 +25,7 @@ For art montages spanning several campuses, do **not** find an aerial photo of o
 ## Trust caveats
 
 The CLI can verify basic pixel dimensions, content hashes, duplicate image fingerprints, allowed download hosts and the existence of human review fields. It **cannot certify** that a source-page caption is correct, that a named photographer owns the image, that `derivatives_allowed` is legally correct, or that a reviewer truly looked at the image. The agent must document uncertainty rather than fabricate this evidence.
+
+## Agent evidence capture in v0.3
+
+An Agent with actual web and image-reading access may supply publicly licensed photos plus a structured source-page/identity/license check and its own invocation IDs. The preflight recognizes this as **agent-attested**, never as human confirmation. Search labels, license declarations and image-model confidence remain evidence to scrutinize, not conclusive authentication.

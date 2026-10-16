@@ -114,3 +114,11 @@ The example above illustrates **field syntax only** and does not attest to any r
 
 - Evidence integrity / validation is partly **mechanical** (SHA, size, duplicate candidates, metadata completeness), whereas building identity, camera angle, copyright, feature presence and generated fidelity are **human assertions**.
 - Even a reviewer can miss subtle geometry errors. For use requiring legally or architecturally authoritative fidelity, use permissioned camera assets and professional manual vector illustration with a separate expert review.
+
+## v0.3: explicit Agent attestation (not fake human verification)
+
+Instead of `human_confirmed_photo`, a public, clearly licensed photo may use `agent_confirmed_photo: true` with `agent_evidence` fields: actual model and call ID, confidence >= 0.92, concrete observation, `source_page_checked`, `building_identity_checked`, `license_checked`, and an HTTPS `license_evidence_url`. Keep `derivatives_allowed` tied to real license evidence. User-owned pictures still need owner authorization.
+
+Instead of `visible_and_human_verified`, a feature may use `visible_and_agent_verified: true` with `agent_evidence` fields `model`, `call_id`, confidence >= 0.92, visual observation and actual `image_input_ids` citing the building's photo(s). Such assertions are not automatically proven true by the CLI.
+
+After image generation, create a generation log recording every building's real image-input IDs, generated cutout SHA256 and final composite SHA256; use `agent_audit.py`. The native `agent-json` reviewer also requires SHA256 for every image reportedly viewed. See [automated protocol](agent-audit.md).

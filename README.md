@@ -59,6 +59,14 @@ Read: [full Chinese protocol](docs/PHOTO_GROUNDING.zh-CN.md), [photo source sele
 
 **Important:** The old ZJU example shown above is an **illustrative AI montage**, not a retrospectively certified accurate architectural reconstruction. Source identity, copyright and visual correctness require actual human verification; the CLI tests evidence/review integrity, not truth. Without an image-input capable model, the Skill should stop with a reference packet rather than claim generation was performed.
 
+## v0.3.0: Agent-first visual verification
+
+The first Skill now supports low-touch, evidence-based photo sourcing and two actual image-aware reviewer passes per landmark: one checks the required features and the other actively searches for invented geometry, text, or viewpoint errors. Any unknown, low-confidence or contradictory finding blocks automatic approval and produces a targeted retry brief.
+
+Use [agent_audit.py](skills/campus-architectural-lineart/scripts/agent_audit.py) with a vision-capable OpenAI Responses API model (your own API key), or let an existing multimodal Agent examine the photos and submit structured, per-image-SHA reports. Only after source hashes, per-building generation call records and all visual checks agree can the candidate be labelled **Agent-reviewed** and passed to SVG export. This is neither human certification nor guaranteed architecture-factual correctness.
+
+Learn more: [Agent audit protocol](skills/campus-architectural-lineart/references/agent-audit.md) · [Chinese walkthrough](docs/AUTONOMOUS_REVIEW.zh-CN.md) · [deliberately unapproved example](examples/agent-review/README.md). Source images with ambiguous derivative rights, official marks and high-stakes photo-faithful work still need appropriate human clearance. The earlier Zhejiang University image remains unverified illustrative art.
+
 ## What you get
 
 | Skill | Purpose | Output |
