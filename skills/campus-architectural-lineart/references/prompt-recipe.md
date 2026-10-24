@@ -32,3 +32,20 @@ Prefer independent cutout PNGs + `scripts/compose.py` to a second all-scene gene
 ### Refusal and retry
 
 If a needed face of the building isn't visible or references conflict, do NOT "fill in reasonably". Request another photo, adjust composition to hide unsupported parts, or switch to manual photo-grounded vector drawing. Do not mark a prompt, model output or an automated semantic image critique as definitive visual verification. `audit` accepts recorded **human** per-feature review only.
+
+
+## Commemorative integrated redraw (after per-building reference-grounded cutouts)
+
+If the user wants a school/city anniversary, tote-bag, commemorative poster, or one artistic visual identity piece, use the [new montage protocol](../../../docs/COMMEMORATIVE_MONTAGE.md), NOT the legacy gallery compositor as final output.
+
+Inputs must be **actual image pixels**:
+- output of `compose_v2.py draft` as the **compositional guide** (not final artwork);
+- each independently photo-grounded transparent building cutout;
+- a verified primary-view photo of **each** depicted landmark, with feature inventory and forbidden inventions;
+- an independent illustration STYLE reference.
+
+Integrated edit prompt:
+
+> Transform the supplied draft and factual cutouts into ONE cohesive commemorative architectural engraving, not multiple isolated stickers. Keep one dominant anchor landmark and arrange secondary buildings into a shared silhouette with purposeful depth and partial occlusion. Use a continuous decorative ground line, ink waves or foliage to naturally connect the subjects. Preserve verified roof shapes, door/arch counts and landmark identity; if architectural detail is hidden, don't invent it. Use one consistent fine-line artistic language, deliberate negative space and print-readable weight. Do not create new real landmark architecture, official signage, college names or spurious physical geography. Relative building placement is artistic, not a real campus view.
+
+Run the final montage-specific two-pass vision review. **Judge the final unified artwork** for compositional cohesion AS WELL AS comparing each visible landmark to its real photo. Any equal-spaced gallery-like layout fails; a final image identical to the draft cannot be approved by `montage_audit.py`. Do not mark the final result factual/official after merely inspecting cutouts.

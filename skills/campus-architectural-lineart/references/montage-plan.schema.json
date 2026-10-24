@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Commemorative montage draft plan",
+  "description": "Normalized artwork planning only; validated further for overlapping anchor/support via compose_v2.validate_plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "usage",
+    "canvas",
+    "upper_blank_fraction",
+    "ground_y",
+    "anchor_landmark_id",
+    "integrated_redraw_required",
+    "connectors",
+    "placements",
+    "disclosure"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "mode": {
+      "const": "commemorative-montage"
+    },
+    "usage": {
+      "enum": [
+        "tote-bag",
+        "anniversary-poster",
+        "ppt-cover",
+        "city-poster"
+      ]
+    },
+    "canvas": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 400,
+        "maximum": 7680
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "upper_blank_fraction": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 0.7
+    },
+    "ground_y": {
+      "type": "number",
+      "exclusiveMinimum": 0.3,
+      "exclusiveMaximum": 1
+    },
+    "anchor_landmark_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "integrated_redraw_required": {
+      "const": true
+    },
+    "connectors": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ornamental-ground-line",
+          "flowing-contour-waves",
+          "ornamental-foliage",
+          "cloud-ornament"
+        ]
+      }
+    },
+    "placements": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "landmark_id",
+          "image",
+          "role",
+          "rect",
+          "depth",
+          "opacity"
+        ],
+        "properties": {
+          "landmark_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "image": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "enum": [
+              "anchor",
+              "support"
+            ]
+          },
+          "rect": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0.4,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "disclosure": {
+      "type": "string",
+      "minLength": 10
+    }
+  }
+}

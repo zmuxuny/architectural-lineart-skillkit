@@ -4,6 +4,22 @@
 
 **From referenced buildings and a hand-drawn image to transparent 4K PNG, genuine multi-layer SVG paths, and a single-file offline color workbench.**
 
+## v0.4.0 — Real commemorative montage, not a sticker gallery
+
+For school anniversaries, city landmarks, tote-bag artwork and campaign visuals, use **`commemorative-montage`**. Multiple landmarks must form **one harmonious illustration**: a dominant anchor, overlapping supporting architecture, common ground/ornamental connections, and consistent engraving style. Mere horizontal placement of independent transparent building cutouts is **gallery-layout**, not a successful commemorative artwork.
+
+| Intent | Mode | Tools |
+| --- | --- | --- |
+| One real landmark | `single-building` | Photo-grounded source + vision audit |
+| Independent multi-building visual catalog | `gallery-layout` | Legacy `compose.py` |
+| Anniversary, tote bag, city/school merchandise & hero visuals | **`commemorative-montage`** | **`compose_v2.py plan/draft` → genuine full-scene reference-image edit → `montage_audit.py`** |
+
+The new `compose_v2.py` is a **functional planner and draft generator**, not a pretend image generator; it creates overlapped hierarchy, wave connectors, guide image and a full-redraw brief. The Agent must then **actually feed** the draft, all cutouts, verified primary building photos and style image to a capable image-generation/editing model. The **final integrated PNG**, not merely separate cutouts, is audited twice per building and twice for overall cohesion. Disjoint galleries, invented roofs/towers or unverifiable official text block approval.
+
+[Detailed English workflow](docs/COMMEMORATIVE_MONTAGE.md) · [完整中文流程](docs/COMMEMORATIVE_MONTAGE.zh-CN.md) · [Plan schema](skills/campus-architectural-lineart/references/montage-plan.schema.json)
+
+**Evidence boundary:** This new path has synthetic unit tests, not yet a live factual-architecture benchmark or a real full-scene image-model run. The old ZJU example is still *unverified artistic montage*; code can reject missing evidence, but cannot mathematically prove architecture accuracy. The current tote-bag profile describes a horizontal 16:9 ink illustration, **not print-shop dielines**.
+
 ## Case study — Zhejiang University-inspired architectural line art
 
 Here is the **actual example included in this repository**, from the selected AI illustration to an adjustable, presentation-ready grayscale result. The buildings form an **artistic montage, not a verified depiction of the real campus** ([asset and trademark notes](ASSET_NOTICE.md)).

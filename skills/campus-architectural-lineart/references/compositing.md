@@ -1,4 +1,6 @@
-# Deterministic panorama from independently generated building cutouts
+# Legacy gallery-layout: deterministic placement of independently generated cutouts
+
+**Use this legacy script for deliberate gallery/card layouts only.** Anniversary celebrations, tote-bag artwork, city/school commemorative illustrations and identity posters need the new [commemorative montage pipeline](../../../docs/COMMEMORATIVE_MONTAGE.md): `compose_v2.py` produces an overlapping composition DRAFT, an actual image-edit model produces the unified art, and `montage_audit.py` reviews the final image. A disjoint sticker layout is not a successful commemorative piece.
 
 Unlike asking a generator to draw a fictitious joint skyline, deterministic compositing does not create new facade/tower pixels. It cannot alone guarantee that cutouts were accurately drawn; the final montage still needs visual audit.
 

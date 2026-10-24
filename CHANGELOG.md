@@ -1,3 +1,11 @@
+## [0.4.0] - 2026-10-24
+
+- Distinguish single-building, gallery-layout and commemorative-montage; anniversaries, canvas tote prints and city identity work must not silently use separated gallery tiles.
+- Add executable `compose_v2.py` to create hierarchically overlapped composition plans, visually connected draft PNGs, layouts/guides and genuine image-model redraw briefs. Draft ≠ finished artwork.
+- Add `montage_audit.py` to check actual integrated image edit call provenance, source/draft/cutout hashes and real photo plus composition in two visual passes per landmark and two for the entire montage.
+- Require integrated final-image-bound approval for SVG/HTML; block sticker galleries and stale draft-for-final substitutions.
+- Add montage plan JSON Schema, bilingual implementation guides and synthetic regression tests. Real model and physical-print effectiveness remain unverified.
+
 ## [0.3.0] - 2026-10-16
 
 - Agent-first sourcing records distinguish model findings from human signoff and require traceable original-photo/license evidence.
