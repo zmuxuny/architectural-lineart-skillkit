@@ -1,0 +1,296 @@
+#!/usr/bin/env python3
+"""Perform a real, reference-conditioned commemorative montage image edit.
+
+This OPTIONAL OpenAI Images API backend connects compose_v2's DRAFT to an actual
+whole-scene redraw. It never calls itself a renderer, never fabricates a tool
+invocation, and never approves its own output: montage_audit.py remains mandatory.
+
+Requires OPENAI_API_KEY. The API request sends the exact montage draft, separate
+style reference, every original building cutout, and each building's primary
+source photo as images (not filenames or textual references).
+
+Current official API: POST https://api.openai.com/v1/images/edits, GPT Image
+models, multiple image[] parts; see https://developers.openai.com/api/reference/resources/images/methods/edit
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+from typing import Any, Callable
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+from uuid import uuid4
+
+from PIL import Image, UnidentifiedImageError
+
+import compose_v2 as layout
+import reference_pipeline as sources
+
+API_ENDPOINT = "https://api.openai.com/v1/images/edits"
+DEFAULT_MODEL = "gpt-image-2.5-sunburst"
+DEFAULT_SIZE = "1536x864"
+MAX_IMAGE_COUNT = 16
+MAX_IMAGE_BYTES = 50 * 1024 * 1024
+MAX_PROMPT_CHARS = 32000
+
+
+def named_inputs(manifest: dict, plan: dict, draft: Path, plan_path: Path,
+                 manifest_path: Path) -> list[tuple[str, Path]]:
+    """The same image IDs expected by montage_audit.validate_generation."""
+    manifest_root = manifest_path.resolve().parent
+    plan_root = plan_path.resolve().parent
+    paths = layout.validate_plan(plan, plan_root)
+    if {p['landmark_id'] for p in plan['placements']} != {b['id'] for b in manifest['landmarks']}:
+        raise ValueError("montage plan does not match the evidence manifest's buildings")
+    result = [
+        ("DRAFT", draft),
+        ("STYLE", sources.safe_path(manifest_root, manifest['style_reference'])),
+    ]
+    # Interleave cutout with its verified primary photograph: each landmark is
+    # visually anchored rather than only loosely represented in text.
+    for b in manifest['landmarks']:
+        bid = b['id']
+        matching = [p for p in b['photos'] if p['id'] == b['primary_view_id']]
+        if len(matching) != 1:
+            raise ValueError(f"{bid}: primary photo anchor is missing or ambiguous")
+        result.append(("CUTOUT:" + bid, paths[bid]))
+        result.append((f"PHOTO:{bid}:{b['primary_view_id']}",
+                       sources.safe_path(manifest_root, matching[0]['file'])))
+    if len(result) > MAX_IMAGE_COUNT:
+        raise ValueError(f"image editing supports at most {MAX_IMAGE_COUNT} input images; "
+                         "reduce landmark count or use smaller grounded batches")
+    for ident, image in result:
+        if not image.is_file():
+            raise ValueError(f"required image input missing: {ident}: {image}")
+        if image.suffix.lower() not in ('.jpg', '.jpeg', '.png', '.webp'):
+            raise ValueError(f"unsupported API image type for {ident}: {image.suffix}")
+        if not 0 < image.stat().st_size < MAX_IMAGE_BYTES:
+            raise ValueError(f"image {ident} is empty or >=50MiB")
+        with Image.open(image) as im:
+            if im.format not in ("JPEG", "PNG", "WEBP"):
+                raise ValueError(f"{ident}: decoded format not accepted by image edits endpoint")
+            im.verify()
+    return result
+
+
+def input_integrity(manifest_file: Path, lock_file: Path, plan_file: Path,
+                    draft_file: Path, evidence_file: Path) -> tuple[dict, dict, dict, dict]:
+    manifest = sources.read_json(manifest_file)
+    lock = sources.read_json(lock_file)
+    errs = sources.verify_lock(manifest_file, lock)
+    if errs:
+        raise ValueError("photo evidence gate blocked: " + "; ".join(errs))
+    plan = layout.load_json(plan_file)
+    plan_paths = layout.validate_plan(plan, plan_file.resolve().parent)
+    draft_evidence = layout.load_json(evidence_file)
+    if manifest['project']['mode'] != 'montage':
+        raise ValueError("integrated montage edit expects the photo-grounded montage mode")
+    if draft_evidence.get('plan_sha256') != layout.digest(plan_file):
+        raise ValueError("montage plan changed after draft generation")
+    if draft_evidence.get('draft_sha256') != layout.digest(draft_file):
+        raise ValueError("draft image changed after generation")
+    for bid, path in plan_paths.items():
+        if draft_evidence.get('cutout_sha256', {}).get(bid) != layout.digest(path):
+            raise ValueError(f"{bid}: building cutout changed after draft generation")
+    return manifest, lock, plan, draft_evidence
+
+
+def redact_error(exc: HTTPError) -> str:
+    # Never surface the request body, image base64, or API bearer token.
+    return f"image edit API returned HTTP {exc.code} ({exc.reason})"
+
+
+def multipart_fields(fields: list[tuple[str, str]], image_fields: list[tuple[str, Path]],
+                     boundary: str) -> bytes:
+    """Encode multipart data with repeated image[] keys, as documented by API."""
+    body = io.BytesIO()
+    delimiter = ("--" + boundary + "\r\n").encode()
+    for name, value in fields:
+        body.write(delimiter)
+        body.write(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        body.write(value.encode('utf-8'))
+        body.write(b'\r\n')
+    for ident, path in image_fields:
+        suffix = path.suffix.lower()
+        mime = 'image/png' if suffix == '.png' else 'image/webp' if suffix == '.webp' else 'image/jpeg'
+        body.write(delimiter)
+        body.write((f'Content-Disposition: form-data; name="image[]"; filename="{ident}{suffix}"\r\n'
+                    f'Content-Type: {mime}\r\n\r\n').encode())
+        with path.open('rb') as inp:
+            while True:
+                chunk = inp.read(1024*1024)
+                if not chunk:
+                    break
+                body.write(chunk)
+        body.write(b'\r\n')
+    body.write(("--" + boundary + "--\r\n").encode())
+    return body.getvalue()
+
+
+def make_prompt(plan: dict, brief_file: Path) -> str:
+    if not brief_file.is_file():
+        raise ValueError(f"required grounded redraw brief missing: {brief_file}")
+    text = brief_file.read_text(encoding='utf-8')
+    role = plan['anchor_landmark_id']
+    prompt = (
+        "You are editing multiple ACTUAL IMAGE references into one coherent, "
+        "beautiful commemorative architectural line-art composition. "
+        "The first image is a rough spatial DRAFT, not finished artwork; "
+        "the second is STYLE ONLY; remaining images alternate labeled single-building "
+        "CUTOUTS and primary-view verified building PHOTOS. Preserve the distinctive "
+        "building identities and supported visible geometry from those photographs. "
+        "Maintain a recognizable anchor, purposeful overlapping supports, and elegant "
+        "connecting ornamental linework. Make this a single continuous hand-drawn print "
+        "illustration, NOT separated stickers or individually presented building assets. "
+        "Render on an opaque PURE BLACK background with delicate white/gray architectural "
+        "lines, consistent line weight, engraver-like detail and generous compositional hierarchy. "
+        "No invented towers, façades, arches, signs, readable school logos or lettering; "
+        "do not invent real physical adjacency or turn decoration into a fake landmark. "
+        f"Dominant landmark ID: {role}. Usage: {plan['usage']}. "
+        "Preserve identifiable main roofs, doors, windows and silhouettes even with partial occlusion. "
+        "When source and layout conflict, preserve the source building geometry and adjust layout.\n\n"
+        + text
+    )
+    if len(prompt) > MAX_PROMPT_CHARS:
+        raise ValueError("generation prompt too long for image edits API")
+    return prompt
+
+
+def request_edit(*, model: str, size: str, prompt: str,
+                 images: list[tuple[str, Path]], timeout: int = 240,
+                 api_endpoint: str = API_ENDPOINT,
+                 open_request: Callable[..., Any] = urlopen) -> tuple[bytes, str, dict]:
+    key = os.getenv('OPENAI_API_KEY')
+    if not key:
+        raise RuntimeError('OPENAI_API_KEY missing: no model image generation was performed')
+    if not (model.startswith('gpt-image-2.5-') or model in ('gpt-image-1.5','gpt-image-2')):
+        raise ValueError('unsupported image model; use a supported GPT Image edit model')
+    try:
+        w, h = (int(x) for x in size.lower().split('x'))
+    except (ValueError, AttributeError) as ex:
+        raise ValueError('size must be WIDTHxHEIGHT, for example 1536x864') from ex
+    if min(w,h) < 512 or max(w,h) > 3840 or w%16 or h%16 or abs(w/h-16/9)>.05:
+        raise ValueError('size must be a valid 16:9, divisible-by-16 image size')
+    boundary = '----lineart-' + uuid4().hex
+    request_data = multipart_fields([
+        ('model',model),('size',size),('quality','high'),
+        ('output_format','png'),('background','opaque'),('n','1'),('prompt',prompt)
+    ],images,boundary)
+    req = Request(api_endpoint, data=request_data, method='POST', headers={
+        'Authorization':'Bearer '+key,
+        'Content-Type':f'multipart/form-data; boundary={boundary}',
+    })
+    try:
+        with open_request(req,timeout=timeout) as response:
+            request_id = response.headers.get('x-request-id', '')
+            raw=response.read()
+    except HTTPError as exc:
+        raise RuntimeError(redact_error(exc)) from None
+    except URLError as exc:
+        raise RuntimeError('network error while calling image edits API') from exc
+    result=json.loads(raw)
+    data = result.get('data')
+    if not isinstance(data,list) or len(data)!=1 or not isinstance(data[0],dict):
+        raise ValueError('image editing response has no single image result')
+    raw_b64 = data[0].get('b64_json')
+    if not isinstance(raw_b64,str) or not raw_b64:
+        raise ValueError('image edit response omitted b64_json; no file was written')
+    try:
+        generated=base64.b64decode(raw_b64,validate=True)
+    except Exception as exc:
+        raise ValueError('image edit response contains invalid base64 image') from exc
+    with Image.open(io.BytesIO(generated)) as im:
+        if im.format!='PNG':
+            raise ValueError('image edit result is not PNG')
+        actual=im.size
+        im.verify()
+    if abs(actual[0]/actual[1]-16/9)>.06:
+        raise ValueError(f'image editing result aspect ratio is not 16:9: {actual}')
+    request_id=request_id or result.get('id','')
+    if not request_id:
+        raise ValueError('API response lacks a real request id; cannot emit a verifiable generation log')
+    meta={'api_model':model,'size':list(actual),'usage':result.get('usage'),
+          'request_image_count':len(images)}
+    return generated,request_id,meta
+
+
+def run(*, manifest_file: Path, lock_file: Path, plan_file: Path,
+        draft_file: Path, draft_evidence_file: Path, brief_file: Path,
+        output_file: Path, log_file: Path,
+        model: str=DEFAULT_MODEL, size: str=DEFAULT_SIZE,
+        backend: Callable[...,tuple[bytes,str,dict]]=request_edit) -> dict:
+    if output_file.resolve() == draft_file.resolve():
+        raise ValueError('final output must differ from draft input')
+    manifest, lock, plan, draft_evidence = input_integrity(
+        manifest_file,lock_file,plan_file,draft_file,draft_evidence_file)
+    inputs=named_inputs(manifest,plan,draft_file,plan_file,manifest_file)
+    snapshot={str(p):layout.digest(p) for _,p in inputs}
+    snapshot.update({str(p):layout.digest(p) for p in (
+        manifest_file,lock_file,plan_file,draft_evidence_file,brief_file)})
+    prompt=make_prompt(plan,brief_file)
+    generated,call_id,meta=backend(model=model,size=size,prompt=prompt,images=inputs)
+    # Even if image editing is long, its input evidence must not silently drift.
+    for path,old_sha in snapshot.items():
+        if layout.digest(Path(path))!=old_sha:
+            raise ValueError(f'image input/evidence changed during generation: {path}')
+    if hashlib.sha256(generated).hexdigest()==layout.digest(draft_file):
+        raise ValueError('generated result equals the draft; no integrated redraw occurred')
+    with Image.open(io.BytesIO(generated)) as im:
+        if im.format!='PNG' or abs(im.width/im.height-16/9)>.06:
+            raise ValueError('backend returned invalid/incorrectly sized image')
+        im.verify()
+    if not isinstance(call_id,str) or not call_id.strip():
+        raise ValueError('no real API call identity returned; refusing generation-log')
+    output_file.parent.mkdir(parents=True,exist_ok=True)
+    log_file.parent.mkdir(parents=True,exist_ok=True)
+    output_file.write_bytes(generated)
+    paths=layout.validate_plan(plan,plan_file.resolve().parent)
+    log={
+        'tool':f'OpenAI Images Edit API ({model})',
+        'call_id':call_id,
+        'image_input_confirmed':True,
+        'reference_ids_attached':[ident for ident,_ in inputs],
+        'reference_image_sha256':{ident:layout.digest(p) for ident,p in inputs},
+        'plan_sha256':layout.digest(plan_file),
+        'draft_sha256':layout.digest(draft_file),
+        'output_sha256':layout.digest(output_file),
+        'cutout_sha256':{bid:layout.digest(p) for bid,p in paths.items()},
+        'response_metadata':meta,
+        'assurance':'Generation call only; requires separate photo-based montage_audit',
+    }
+    sources.write_json(log_file,log)
+    return log
+
+
+def main() -> None:
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--manifest',type=Path,required=True)
+    p.add_argument('--evidence-lock',type=Path,required=True)
+    p.add_argument('--plan',type=Path,required=True)
+    p.add_argument('--draft',type=Path,required=True)
+    p.add_argument('--draft-evidence',type=Path,required=True)
+    p.add_argument('--brief',type=Path,required=True)
+    p.add_argument('--output',type=Path,required=True)
+    p.add_argument('--generation-log',type=Path,required=True)
+    p.add_argument('--model',default=DEFAULT_MODEL)
+    p.add_argument('--size',default=DEFAULT_SIZE)
+    a=p.parse_args()
+    try:
+        log=run(manifest_file=a.manifest,lock_file=a.evidence_lock,
+                plan_file=a.plan,draft_file=a.draft,
+                draft_evidence_file=a.draft_evidence,brief_file=a.brief,
+                output_file=a.output,log_file=a.generation_log,model=a.model,size=a.size)
+    except (OSError,ValueError,RuntimeError,UnidentifiedImageError) as exc:
+        p.error(str(exc))
+    print(f"Actual integrated image-edit output: {a.output}")
+    print(f"Generation evidence recorded in {a.generation_log} (request id: {log['call_id']})")
+    print("This image is NOT yet approved; run montage_audit.py on the final output")
+
+
+if __name__=='__main__':
+    main()
