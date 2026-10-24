@@ -56,7 +56,7 @@ class MontageDraftTests(unittest.TestCase):
             self.assertNotEqual(im.getpixel((850, 750)), (0, 0, 0))
         brief = (self.root/"output"/"integrated-generation-brief.md").read_text("utf-8")
         self.assertIn("NOT THE FINAL ARTWORK", brief)
-        self.assertIn("not a real geographic", brief.lower() + " not a real geographic")
+        self.assertIn("do not assert real geography", brief.lower())
 
     def test_ppt_cover_preserves_blank_title_area(self):
         p, file = self.plan("ppt-cover")

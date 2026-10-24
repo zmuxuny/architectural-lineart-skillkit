@@ -17,5 +17,19 @@ jobs:
         run: python -m pip install -r requirements.txt pyyaml
       - name: Run tests
         run: python -m unittest discover -s tests -v
+      - name: Generate synthetic commemorative layout draft
+        run: |
+          python examples/commemorative-montage/create_synthetic_draft.py --out-dir dist/synthetic-montage-draft
+          python -c "from PIL import Image; from pathlib import Path; p=Path('dist/synthetic-montage-draft/draft/draft-layout.png'); assert p.exists(); im=Image.open(p); assert im.size==(1672,941); assert (Path('dist/synthetic-montage-draft/draft/integrated-generation-brief.md')).is_file()"
+      - name: Upload synthetic montage draft (NOT final artwork)
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-commemorative-montage-draft
+          path: |
+            dist/synthetic-montage-draft/montage-plan.json
+            dist/synthetic-montage-draft/draft/draft-layout.png
+            dist/synthetic-montage-draft/draft/draft-guides.png
+            dist/synthetic-montage-draft/draft/integrated-generation-brief.md
+          retention-days: 7
       - name: Check editor JavaScript
         run: node --check skills/offline-svg-color-workbench/assets/editor.js
