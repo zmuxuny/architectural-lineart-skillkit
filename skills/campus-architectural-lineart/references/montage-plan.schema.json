@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Commemorative montage draft plan",
-  "description": "Normalized artwork planning only; validated further for overlapping anchor/support via compose_v2.validate_plan.",
+  "description": "Hero montage (2-5) or architecture-first landmark-scroll (6-10). Both require integrated reference-conditioned final redraw.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -67,14 +67,15 @@
           "ornamental-ground-line",
           "flowing-contour-waves",
           "ornamental-foliage",
-          "cloud-ornament"
+          "cloud-ornament",
+          "architectural-baseline"
         ]
       }
     },
     "placements": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 5,
+      "maxItems": 10,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -127,6 +128,18 @@
     "disclosure": {
       "type": "string",
       "minLength": 10
+    },
+    "archetype": {
+      "enum": [
+        "hero-montage",
+        "landmark-scroll"
+      ],
+      "default": "hero-montage"
+    },
+    "max_ornament_area_fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 0.08
     }
   }
 }

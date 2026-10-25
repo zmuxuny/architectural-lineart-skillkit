@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
 """Audit the FINAL integrated commemorative artwork, not just building cutouts.
 
+
 Requires grounded source photos, a compositional draft, a genuine image-edit call
 and two vision reviews of EACH landmark plus the whole visual composition.
 Agent pass is NOT expert architecture certification. Fail closed on uncertainty.
 """
 from __future__ import annotations
 
+
 import argparse
 import hashlib
 import json
 from pathlib import Path
 
+
 import agent_audit as vision
 import compose_v2 as montage
 import reference_pipeline as sources
+import scroll_atlas
+
 
 MONTAGE_FEATURES = (
     ("integrated_composition", "All landmarks form ONE illustration, not isolated cutout tiles, separated stickers, or equal-spaced gallery."),
@@ -23,18 +28,79 @@ MONTAGE_FEATURES = (
     ("consistent_style", "Building strokes, ink weight, density, texture, lighting and perspective style are coherent."),
     ("print_readability", "Unified legible silhouette suitable for the designated commemorative merchandise."),
 )
+SCROLL_FEATURES = (
+    ("landmark_inventory", "All named buildings are independently recognizable, not replaced by trees or invented structures."),
+    ("architecture_priority", "Architectural structures clearly dominate visual attention; no default dense vegetation, lake, decorative clouds or water patterns."),
+    ("continuous_landmark_rhythm", "Six or more recognizable landmark silhouettes extend across left, middle and right with varied heights and consistent drawing style."),
+)
+
+
 
 
 def source_photo_ids(manifest: dict) -> set[str]:
     return {f"PHOTO:{b['id']}:{b['primary_view_id']}" for b in manifest["landmarks"]}
 
 
+
+
 def validate_generation(
     *, manifest: dict, plan: dict, plan_path: Path, evidence: dict, draft: Path,
-    final: Path, log: dict, cutouts: dict[str, Path]
+    final: Path, log: dict, cutouts: dict[str, Path],
+    log_root: Path | None = None, source_root: Path | None = None
 ) -> list[str]:
     problems = []
-    expected = {"DRAFT", "STYLE"} | {f"CUTOUT:{x}" for x in cutouts} | source_photo_ids(manifest)
+    source_expected = {"CUTOUT:"+bid:montage.digest(path) for bid,path in cutouts.items()}
+    if source_root is not None:
+        for b in manifest["landmarks"]:
+            photo=next((p for p in b["photos"] if p["id"]==b["primary_view_id"]),None)
+            if photo is not None:
+                source_expected[f"PHOTO:{b['id']}:{photo['id']}"] = montage.digest(
+                    sources.safe_path(source_root,photo["file"]))
+    if plan.get("archetype") == "landmark-scroll":
+        if log.get("input_mode") != "reference-atlas-v1":
+            problems.append("landmark-scroll requires atlases of ALL source cutouts and primary real photos")
+        entries=log.get("atlas_entries")
+        if not isinstance(entries,list) or not entries:
+            problems.append("missing source-verified reference atlas entries")
+            entries=[]
+        declared_ids=set();source_ids=set()
+        for entry in entries:
+            if not isinstance(entry,dict):
+                problems.append("malformed atlas entry");continue
+            aid=entry.get("id","")
+            if not (isinstance(aid,str) and (aid.startswith("CUTOUT_ATLAS:") or aid.startswith("PHOTO_ATLAS:")) and aid not in declared_ids):
+                problems.append("invalid or duplicated reference atlas ID")
+            declared_ids.add(aid)
+            members=entry.get("members")
+            if not isinstance(members,list) or not 1<=len(members)<=scroll_atlas.PER_PAGE:
+                problems.append(f"{aid}: missing or excessive atlas members")
+                continue
+            for member in members:
+                if not isinstance(member,dict):
+                    problems.append(f"{aid}: malformed source member");continue
+                sid=member.get("image_id","")
+                if sid in source_ids or sid not in source_expected:
+                    problems.append(f"{aid}: duplicate/unexpected original source {sid}")
+                source_ids.add(sid)
+                if member.get("source_sha256")!=source_expected.get(sid):
+                    problems.append(f"{aid}: source photo/cutout SHA changed for {sid}")
+                if aid.startswith("CUTOUT_ATLAS") != sid.startswith("CUTOUT:"):
+                    problems.append(f"{aid}: cutout/photo atlas source category mixed")
+            if log_root is None:
+                problems.append("atlas root location unavailable for evidence recheck")
+            else:
+                root=(log_root/"reference-atlases").resolve()
+                f=entry.get("file","")
+                file=(root/f).resolve() if isinstance(f,str) else root
+                if not isinstance(f,str) or not f or '/' in f or '\\' in f or file.parent!=root or not file.is_file():
+                    problems.append(f"{aid}: missing or unsafe source atlas image")
+                elif entry.get("sha256")!=montage.digest(file) or log.get("reference_image_sha256",{}).get(aid)!=montage.digest(file):
+                    problems.append(f"{aid}: source atlas was modified or not attached")
+        if source_ids != set(source_expected):
+            problems.append("reference atlases omit one or more real building cutouts/photographs")
+        expected={"DRAFT","STYLE"}|declared_ids
+    else:
+        expected = {"DRAFT", "STYLE"} | {f"CUTOUT:{x}" for x in cutouts} | source_photo_ids(manifest)
     supplied = set(log.get("reference_ids_attached") or [])
     if not isinstance(log.get("tool"), str) or not log.get("tool") or not log.get("call_id"):
         problems.append("missing real integrated image-edit tool name and call ID")
@@ -65,6 +131,8 @@ def validate_generation(
     return problems
 
 
+
+
 def pseudo_building(plan: dict) -> dict:
     return {
         "id": "MONTAGE",
@@ -74,11 +142,13 @@ def pseudo_building(plan: dict) -> dict:
         "photos": [{"id": "draft"}, {"id": "style"}],
         "must_match": [
             {"id": fid, "description": desc, "photo_ids": ["draft", "style"]}
-            for fid, desc in MONTAGE_FEATURES
+            for fid, desc in (MONTAGE_FEATURES + (SCROLL_FEATURES if plan.get("archetype") == "landmark-scroll" else ()))
         ],
         "forbidden_inventions": ["invented scenery advertised as physical site", "model-created official text"],
         "unknowns": ["actual relative geographic positions intentionally unspecified"],
     }
+
+
 
 
 def montage_prompt(plan: dict, stage: str) -> str:
@@ -93,6 +163,8 @@ def montage_prompt(plan: dict, stage: str) -> str:
         f"Usage={plan['usage']}; required anchor={plan['anchor_landmark_id']}; {focus}\n"
         "Evaluate all five required features as separate reports: "
         + ", ".join(f"{key}: {desc}" for key, desc in MONTAGE_FEATURES)
+        + (", "+", ".join(f"{key}: {desc}" for key,desc in SCROLL_FEATURES)
+           if plan.get("archetype")=="landmark-scroll" else "")
         + ". And the four safety checks no_extra_geometry, no_invented_text, "
         "viewpoint_consistent, no_unobserved_facades. "
         "For positive assessments cite photo_ids ['draft'] or ['style'] exactly; "
@@ -102,8 +174,16 @@ def montage_prompt(plan: dict, stage: str) -> str:
         "Do not pass a layout mockup as a finished commemorative artwork. "
         "Return exactly the structured JSON schema with specific visual observations and confidence. "
         "Unknown is mandatory when image detail is too small for a reliable judgment. "
-        "Candidate_has_legible_text must be true for any model-generated readable lettering."
+        "Candidate_has_legible_text must be true for any model-generated readable lettering. "
+        + (f"LANDMARK-SCROLL RULE: all {len(plan['placements'])} cited buildings must be recognizable. "
+           "FAIL if only three large buildings and numerous shrubs/trees dominate. "
+           "FAIL when trees, vegetation, fake lake, waves or other scenery consume substantial visual ink. "
+           "FAIL if silhouettes don't create a continuous architectural scroll across left/middle/right thirds. "
+           "Environmental motifs should be absent or subordinate, with no filler vegetation. "
+           if plan.get("archetype")=="landmark-scroll" else "")
     )
+
+
 
 
 def landmark_prompt(b: dict, stage: str) -> str:
@@ -118,6 +198,8 @@ def landmark_prompt(b: dict, stage: str) -> str:
         "Identify added towers, doors, clocks, roof geometry and lettering. "
         + vision.build_prompt(b, stage)
     )
+
+
 
 
 def check_reviews(
@@ -161,6 +243,8 @@ def check_reviews(
     return findings, problems
 
 
+
+
 def retry_text(findings: list[dict]) -> str:
     lines = ["# Integrated artwork repair requests", "",
              "Use actual source photos and original cutouts for repairs.",
@@ -180,6 +264,8 @@ def retry_text(findings: list[dict]) -> str:
     if len(lines) == 4:
         lines.append("Review rejected due to provenance or global constraints; inspect JSON report.")
     return "\n".join(lines) + "\n"
+
+
 
 
 def run(
@@ -206,7 +292,8 @@ def run(
     log = montage.load_json(generation_log_file)
     issues = validate_generation(
         manifest=manifest, plan=plan, plan_path=plan_file,
-        evidence=evidence, draft=draft, final=final, log=log, cutouts=paths)
+        evidence=evidence, draft=draft, final=final, log=log, cutouts=paths,
+        log_root=generation_log_file.parent,source_root=manifest_file.parent)
     if issues:
         raise ValueError("integrated image evidence invalid: " + "; ".join(issues))
     before = {str(p): montage.digest(p) for p in (
@@ -255,6 +342,8 @@ def run(
     return report
 
 
+
+
 def cli() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--manifest", required=True, type=Path)
@@ -286,5 +375,9 @@ def cli() -> None:
         ap.error(str(exc))
 
 
+
+
 if __name__ == "__main__":
     cli()
+
+

@@ -31,5 +31,21 @@ jobs:
             dist/synthetic-montage-draft/draft/draft-guides.png
             dist/synthetic-montage-draft/draft/integrated-generation-brief.md
           retention-days: 7
+      - name: Generate architecture-first 9-landmark scroll draft (synthetic only)
+        run: |
+          python examples/landmark-scroll/create_synthetic_draft.py --out-dir dist/synthetic-landmark-scroll
+          python -c "from PIL import Image; from pathlib import Path; p=Path('dist/synthetic-landmark-scroll/draft/draft-layout.png'); assert Image.open(p).size==(1672,941); assert (p.parent/'draft-guides.png').is_file()"
+      - name: Upload synthetic landmark scroll draft (NOT verified real art)
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-nine-landmark-scroll-draft
+          path: |
+            dist/synthetic-landmark-scroll/montage-plan.json
+            dist/synthetic-landmark-scroll/draft/draft-layout.png
+            dist/synthetic-landmark-scroll/draft/draft-guides.png
+            dist/synthetic-landmark-scroll/draft/integrated-generation-brief.md
+          retention-days: 7
       - name: Check editor JavaScript
         run: node --check skills/offline-svg-color-workbench/assets/editor.js
+
+

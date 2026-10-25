@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Build a cohesive commemorative montage DRAFT, not a finished factual artwork.
 
+
 The draft carries foreground/background hierarchy, deliberate overlap and
 decorative connecting strokes. A reference-conditioned IMAGE EDIT must make the
 finished artwork; passing this draft off as the finished montage is prohibited.
 """
 from __future__ import annotations
+
 
 import argparse
 import hashlib
@@ -14,13 +16,19 @@ import math
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
+
 USAGES = ("tote-bag", "anniversary-poster", "ppt-cover", "city-poster")
 MODES = ("commemorative-montage",)
+ARCHETYPES = ("hero-montage", "landmark-scroll")
 RESAMPLING = Image.Resampling.LANCZOS
+
+
 
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 
 
 def save_json(path: Path, data: dict) -> None:
@@ -28,11 +36,15 @@ def save_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+
+
 def load_json(path: Path) -> dict:
     result = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(result, dict):
         raise ValueError("JSON root must be an object")
     return result
+
+
 
 
 def safe_file(root: Path, relative: str) -> Path:
@@ -47,6 +59,8 @@ def safe_file(root: Path, relative: str) -> Path:
     return out
 
 
+
+
 def make_plan(manifest: dict, usage: str, anchor_id: str, cutouts: str = "cutouts") -> dict:
     """Choose an intentional center/side hierarchy; Agent may refine boxes."""
     if usage not in USAGES:
@@ -57,6 +71,7 @@ def make_plan(manifest: dict, usage: str, anchor_id: str, cutouts: str = "cutout
         raise ValueError("commemorative montage requires 2–5 distinct landmarks")
     if anchor_id not in ids:
         raise ValueError("anchor must match a landmark ID in the manifest")
+
 
     # All layouts intentionally overlap; the old gallery compositor does not.
     # Rectangles are normalized x0,y0,x1,y1 in a 16:9 draft canvas.
@@ -121,6 +136,80 @@ def make_plan(manifest: dict, usage: str, anchor_id: str, cutouts: str = "cutout
     }
 
 
+
+
+def make_scroll_plan(manifest: dict, usage: str, anchor_id: str | None = None,
+                     cutouts: str = "cutouts") -> dict:
+    """Architecture-dominant landmark scroll, rather than three buildings plus scenery.
+
+    6–10 verified landmarks share a wide illustrative skyline; positions
+    alternate in roof-height and depth. The final result still requires a
+    photo-conditioned integrated redraw and visual audit.
+    """
+    if usage not in USAGES:
+        raise ValueError("unknown usage: " + usage)
+    ids = [b["id"] for b in manifest.get("landmarks", [])]
+    if len(ids) < 6 or len(ids) > 10 or len(ids) != len(set(ids)):
+        raise ValueError("landmark-scroll requires 6–10 distinct verified landmarks")
+    if anchor_id is None:
+        anchor_id = ids[len(ids) // 2]
+    if anchor_id not in ids:
+        raise ValueError("anchor must match a landmark ID")
+    # The Agent's landmark order is the selected narrative order; reserve one
+    # visible central focus without hiding the other landmarks in landscaping.
+    ordered = [x for x in ids if x != anchor_id]
+    ordered.insert(len(ids)//2, anchor_id)
+    n = len(ordered)
+    base_width = min(.27, max(.18, 1.60 / n))
+    width_pattern = [.96, 1.13, .84, 1.10, .92, 1.17, .88, 1.06, .95, 1.12]
+    upper = {
+        "tote-bag": .12,
+        "anniversary-poster": .19,
+        "ppt-cover": .46,
+        "city-poster": .18,
+    }[usage]
+    ground = .94 if usage != "ppt-cover" else .965
+    raised = [0, .085, .035, .115, .015, .075, .045, .10, 0, .055]
+    placements = []
+    for i, bid in enumerate(ordered):
+        width = min(.33, max(.155, base_width * width_pattern[i] *
+                            (1.12 if bid == anchor_id else 1)))
+        target_center = base_width / 2 + (1 - base_width) * i / (n - 1)
+        center_x = min(1-width/2, max(width/2, target_center))
+        # Different visual heights, but all buildings take substantial space;
+        # avoid equally sized stickers and avoid tiny background cameos.
+        if bid == anchor_id:
+            top = upper + .035
+        else:
+            top = upper + .11 + raised[i]
+        bottom = .98 - (.025 if i % 3 == 1 else 0)
+        placements.append({
+            "landmark_id": bid,
+            "image": f"{cutouts}/{bid}.png",
+            "role": "anchor" if bid == anchor_id else "support",
+            "rect": [round(center_x - width / 2, 4), round(top, 4),
+                     round(center_x + width / 2, 4), round(bottom, 4)],
+            "depth": 20 if bid == anchor_id else 2 + (i % 4),
+            "opacity": 1.0,
+        })
+    return {
+        "schema_version": 1,
+        "mode": "commemorative-montage",
+        "archetype": "landmark-scroll",
+        "usage": usage,
+        "canvas": [1672, 941],
+        "upper_blank_fraction": upper,
+        "ground_y": ground,
+        "anchor_landmark_id": anchor_id,
+        "integrated_redraw_required": True,
+        # Decor may CONNECT architecture, not fill blank space with scenery.
+        "connectors": ["architectural-baseline"],
+        "max_ornament_area_fraction": 0.05,
+        "placements": placements,
+        "disclosure": "Continuous artistic scroll of grounded landmarks, not their real geographic adjacency.",
+    }
+
+
 def validate_plan(plan: dict, root: Path, require_images: bool = True) -> dict[str, Path]:
     if plan.get("schema_version") != 1 or plan.get("mode") not in MODES:
         raise ValueError("expected commemorative-montage schema_version=1")
@@ -139,9 +228,19 @@ def validate_plan(plan: dict, root: Path, require_images: bool = True) -> dict[s
         raise ValueError("invalid shared ground line position")
     if plan.get("integrated_redraw_required") is not True:
         raise ValueError("this is a generation DRAFT; integrated redraw cannot be skipped")
+    archetype = plan.get("archetype", "hero-montage")
+    if archetype not in ARCHETYPES:
+        raise ValueError("unsupported composition archetype")
     placements = plan.get("placements")
-    if not isinstance(placements, list) or not 2 <= len(placements) <= 5:
-        raise ValueError("montage requires 2–5 placed buildings")
+    minimum, maximum = (6, 10) if archetype == "landmark-scroll" else (2, 5)
+    if not isinstance(placements, list) or not minimum <= len(placements) <= maximum:
+        raise ValueError(f"{archetype} requires {minimum}–{maximum} placed landmarks")
+    if archetype == "landmark-scroll":
+        fraction = plan.get("max_ornament_area_fraction")
+        if not isinstance(fraction,(int,float)) or not 0 <= fraction <= .08:
+            raise ValueError("landmark-scroll requires ornament budget <= 8%")
+        if plan.get("connectors") != ["architectural-baseline"]:
+            raise ValueError("scroll must not default to trees, shrubs, lakes or decorative waves")
     ids, paths, anchors = set(), {}, []
     for p in placements:
         if not isinstance(p, dict):
@@ -176,7 +275,17 @@ def validate_plan(plan: dict, root: Path, require_images: bool = True) -> dict[s
                    for p in placements if p["role"] == "support")
     if not overlaps:
         raise ValueError("gallery-like disjoint boxes are invalid in commemorative mode")
+    if archetype == "landmark-scroll":
+        boxes = [p["rect"] for p in placements]
+        if min(r[0] for r in boxes) > .04 or max(r[2] for r in boxes) < .96:
+            raise ValueError("scroll must occupy the width rather than cluster at one side")
+        centers = [(.5 * (r[0]+r[2])) for r in boxes]
+        if any(not any(a <= x < b for x in centers) for a,b in
+               ((0,1/3),(1/3,2/3),(2/3,1.00001))):
+            raise ValueError("scroll needs landmarks across left, middle and right")
     return paths
+
+
 
 
 def prepared_cutout(path: Path, max_width: int, max_height: int, strength: float) -> Image.Image:
@@ -200,10 +309,17 @@ def prepared_cutout(path: Path, max_width: int, max_height: int, strength: float
     return art
 
 
-def draw_ornaments(board: Image.Image, ground: float) -> None:
-    """Abstract line-work only; do not add invented bridges or buildings."""
+
+
+def draw_ornaments(board: Image.Image, ground: float, archetype: str = "hero-montage") -> None:
+    """A scroll gets only an extremely restrained baseline: architecture is subject."""
     w, h = board.size
     d = ImageDraw.Draw(board, "RGBA")
+    if archetype == "landmark-scroll":
+        yy = min(h-7, round(h * ground))
+        d.line([(round(.025*w), yy), (round(.975*w), yy)],
+               fill=(175, 188, 198, 42), width=1)
+        return
     for layer in range(4):
         y = h * (ground + layer * .017)
         pts = [(round(w * (.035 + .93 * i / 180)),
@@ -218,8 +334,11 @@ def draw_ornaments(board: Image.Image, ground: float) -> None:
                   start=195, end=345, fill=(190, 199, 211, 75), width=1)
 
 
+
+
 def draft_brief(plan: dict, hashes: dict[str, str]) -> str:
     placements = plan["placements"]
+    scroll = plan.get("archetype") == "landmark-scroll"
     lines = [
         "# Integrated image-redraw contract: commemorative montage",
         "",
@@ -234,6 +353,7 @@ def draft_brief(plan: dict, hashes: dict[str, str]) -> str:
         "Preserve central hierarchy and purposeful overlapping. Integrate coherent ground, foliage/ornamental",
         "lines, flowing curves and negative space. Connector motifs are decorative and do NOT assert real geography.",
         "Uniform line density, perspective language, shading, and visual rhythm across all buildings.",
+        "The architecture must be the principal visual subject; foliage and water are NOT default connectors.",
         "Do not render each building as a sticker, tile, isolated card or equally spaced gallery.",
         "Do not invent towers, wings, arches, clock faces, windows, signs or official lettering.",
         "Keep distinguishing silhouettes and verified visible architectural features from source photos.",
@@ -246,9 +366,25 @@ def draft_brief(plan: dict, hashes: dict[str, str]) -> str:
         "",
         "## Landmark order and locked source cutouts",
     ]
+    if scroll:
+        lines.extend(["", "## REQUIRED LANDMARK SCROLL ART DIRECTION",
+            f"Render ALL {len(placements)} named buildings as a densely populated, continuous architectural landmark scroll.",
+            "This is a school/city ARCHITECTURE IDENTIFICATION PANORAMA, not a scenic campus landscape.",
+            "Architectural landmarks must dominate (>85% of visual ink/attention); ornament budget <=5%.",
+            "NO default trees, shrub borders, forest, lake, water reflections, hillside or ornamental clouds.",
+            "Do not create a landscaped foreground. Use only a very faint shared architectural baseline if useful.",
+            "Keep multiple recognizable building silhouettes visible across left, middle and right thirds.",
+            "Vary roof heights, facade density and scale with a controlled rhythm; avoid three giant landmarks.",
+            "Buildings may interleave slightly but do NOT erase signature gates, domes, roofs or tower silhouettes.",
+            "One connected architectural scroll is required. Avoid vertical gaps, floating cutouts, emoji/logo icons and tiles.",
+            "When reference permits, alternate historic and contemporary identity landmarks; no invented structures.",
+            "Do not assume a physical continuous site or fake road/water around landmarks.",
+            ""])
     for p in sorted(placements, key=lambda p: p["depth"]):
         lines.append(f"- {p['landmark_id']}: {p['role']}; cutout={p['image']}; SHA256={hashes[p['landmark_id']]}; rect={p['rect']}")
     return "\n".join(lines) + "\n"
+
+
 
 
 def render(plan_file: Path, out_dir: Path) -> dict:
@@ -256,7 +392,7 @@ def render(plan_file: Path, out_dir: Path) -> dict:
     paths = validate_plan(plan, plan_file.resolve().parent)
     w, h = plan["canvas"]
     board = Image.new("RGBA", (w, h), (0, 0, 0, 255))
-    draw_ornaments(board, plan["ground_y"])
+    draw_ornaments(board, plan["ground_y"], plan.get("archetype", "hero-montage"))
     guides = board.copy()
     gd = ImageDraw.Draw(guides, "RGBA")
     hashes = {}
@@ -289,13 +425,16 @@ def render(plan_file: Path, out_dir: Path) -> dict:
     return evidence
 
 
+
+
 def cli() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="action", required=True)
     s = sub.add_parser("plan", help="create intentional overlapping visual hierarchy from building manifest")
     s.add_argument("--manifest", required=True, type=Path)
     s.add_argument("--usage", required=True, choices=USAGES)
-    s.add_argument("--anchor-id", required=True)
+    s.add_argument("--anchor-id", help="optional for landmark-scroll; defaults to central slot")
+    s.add_argument("--archetype", choices=ARCHETYPES, default="hero-montage")
     s.add_argument("--cutouts", default="cutouts", help="path relative to plan directory")
     s.add_argument("--output", required=True, type=Path)
     r = sub.add_parser("draft", help="create composition guides for a reference-conditioned image edit")
@@ -304,7 +443,13 @@ def cli() -> None:
     a = ap.parse_args()
     try:
         if a.action == "plan":
-            plan = make_plan(load_json(a.manifest), a.usage, a.anchor_id, a.cutouts)
+            manifest = load_json(a.manifest)
+            if a.archetype == "landmark-scroll":
+                plan = make_scroll_plan(manifest, a.usage, a.anchor_id, a.cutouts)
+            else:
+                if not a.anchor_id:
+                    raise ValueError("hero-montage requires --anchor-id")
+                plan = make_plan(manifest, a.usage, a.anchor_id, a.cutouts)
             save_json(a.output, plan)
             print(f"Created intentional montage plan: {a.output}")
         else:
@@ -314,5 +459,9 @@ def cli() -> None:
         ap.error(str(exc))
 
 
+
+
 if __name__ == "__main__":
     cli()
+
+

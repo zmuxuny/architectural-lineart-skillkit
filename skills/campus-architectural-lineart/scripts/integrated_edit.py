@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Perform a real, reference-conditioned commemorative montage image edit.
 
+
 This OPTIONAL OpenAI Images API backend connects compose_v2's DRAFT to an actual
 whole-scene redraw. It never calls itself a renderer, never fabricates a tool
 invocation, and never approves its own output: montage_audit.py remains mandatory.
+
 
 Requires OPENAI_API_KEY. The API request sends the exact montage draft, separate
 style reference, every original building cutout, and each building's primary
 source photo as images (not filenames or textual references).
 
+
 Current official API: POST https://api.openai.com/v1/images/edits, GPT Image
 models, multiple image[] parts; see https://developers.openai.com/api/reference/resources/images/methods/edit
 """
 from __future__ import annotations
+
 
 import argparse
 import base64
@@ -26,10 +30,14 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
+
 from PIL import Image, UnidentifiedImageError
 
+
 import compose_v2 as layout
+import scroll_atlas
 import reference_pipeline as sources
+
 
 API_ENDPOINT = "https://api.openai.com/v1/images/edits"
 DEFAULT_MODEL = "gpt-image-2.5-sunburst"
@@ -37,6 +45,8 @@ DEFAULT_SIZE = "1536x864"
 MAX_IMAGE_COUNT = 16
 MAX_IMAGE_BYTES = 50 * 1024 * 1024
 MAX_PROMPT_CHARS = 32000
+
+
 
 
 def named_inputs(manifest: dict, plan: dict, draft: Path, plan_path: Path,
@@ -78,6 +88,8 @@ def named_inputs(manifest: dict, plan: dict, draft: Path, plan_path: Path,
     return result
 
 
+
+
 def input_integrity(manifest_file: Path, lock_file: Path, plan_file: Path,
                     draft_file: Path, evidence_file: Path) -> tuple[dict, dict, dict, dict]:
     manifest = sources.read_json(manifest_file)
@@ -100,9 +112,13 @@ def input_integrity(manifest_file: Path, lock_file: Path, plan_file: Path,
     return manifest, lock, plan, draft_evidence
 
 
+
+
 def redact_error(exc: HTTPError) -> str:
     # Never surface the request body, image base64, or API bearer token.
     return f"image edit API returned HTTP {exc.code} ({exc.reason})"
+
+
 
 
 def multipart_fields(fields: list[tuple[str, str]], image_fields: list[tuple[str, Path]],
@@ -132,20 +148,25 @@ def multipart_fields(fields: list[tuple[str, str]], image_fields: list[tuple[str
     return body.getvalue()
 
 
+
+
 def make_prompt(plan: dict, brief_file: Path) -> str:
     if not brief_file.is_file():
         raise ValueError(f"required grounded redraw brief missing: {brief_file}")
     text = brief_file.read_text(encoding='utf-8')
     role = plan['anchor_landmark_id']
+    scroll = plan.get('archetype') == 'landmark-scroll'
     prompt = (
         "You are editing multiple ACTUAL IMAGE references into one coherent, "
         "beautiful commemorative architectural line-art composition. "
         "The first image is a rough spatial DRAFT, not finished artwork; "
-        "the second is STYLE ONLY; remaining images alternate labeled single-building "
-        "CUTOUTS and primary-view verified building PHOTOS. Preserve the distinctive "
+        "the second is STYLE ONLY; remaining images are labeled original-reference "
+        "CUTOUTS and primary-view verified building PHOTOS (or source-labeled 2x2 "
+        "CUTOUT_ATLAS and PHOTO_ATLAS pages in landmark-scroll mode). Preserve the distinctive "
         "building identities and supported visible geometry from those photographs. "
-        "Maintain a recognizable anchor, purposeful overlapping supports, and elegant "
-        "connecting ornamental linework. Make this a single continuous hand-drawn print "
+        "Maintain a recognizable anchor and purposeful overlapping supports; architecture "
+        "itself makes the continuous line of silhouettes, not heavy scenery. "
+        "Make this a single continuous hand-drawn print "
         "illustration, NOT separated stickers or individually presented building assets. "
         "Render on an opaque PURE BLACK background with delicate white/gray architectural "
         "lines, consistent line weight, engraver-like detail and generous compositional hierarchy. "
@@ -154,11 +175,20 @@ def make_prompt(plan: dict, brief_file: Path) -> str:
         f"Dominant landmark ID: {role}. Usage: {plan['usage']}. "
         "Preserve identifiable main roofs, doors, windows and silhouettes even with partial occlusion. "
         "When source and layout conflict, preserve the source building geometry and adjust layout.\n\n"
-        + text
+        + ("LANDMARK SCROLL SPECIAL RULES: Show ALL named buildings across the full width; "
+           "architecture should comprise at least 85% of meaningful ink/visual attention. "
+           "Reduce trees, shrubs, lake, reflections, sky clouds and landscape filling to almost zero. "
+           "Do not substitute scenery for missing buildings. Vary recognizable roofs and facades "
+           "in a tight rhythmic architectural scroll, not three large buildings and a park. "
+           "Use no more than a faint shared foundation line to connect silhouettes. "
+           "Create at least six distinguishable architectural identities; never invent a new one. "
+           if scroll else "") + text
     )
     if len(prompt) > MAX_PROMPT_CHARS:
         raise ValueError("generation prompt too long for image edits API")
     return prompt
+
+
 
 
 def request_edit(*, model: str, size: str, prompt: str,
@@ -219,6 +249,8 @@ def request_edit(*, model: str, size: str, prompt: str,
     return generated,request_id,meta
 
 
+
+
 def run(*, manifest_file: Path, lock_file: Path, plan_file: Path,
         draft_file: Path, draft_evidence_file: Path, brief_file: Path,
         output_file: Path, log_file: Path,
@@ -228,8 +260,26 @@ def run(*, manifest_file: Path, lock_file: Path, plan_file: Path,
         raise ValueError('final output must differ from draft input')
     manifest, lock, plan, draft_evidence = input_integrity(
         manifest_file,lock_file,plan_file,draft_file,draft_evidence_file)
-    inputs=named_inputs(manifest,plan,draft_file,plan_file,manifest_file)
-    snapshot={str(p):layout.digest(p) for _,p in inputs}
+    atlas_entries=[]
+    if plan.get('archetype') == 'landmark-scroll':
+        plan_paths=layout.validate_plan(plan,plan_file.resolve().parent)
+        photos=[];cutouts=[]
+        for building in manifest['landmarks']:
+            bid=building['id']
+            primary=next(p for p in building['photos'] if p['id']==building['primary_view_id'])
+            cutouts.append(('CUTOUT:'+bid,plan_paths[bid]))
+            photos.append((f"PHOTO:{bid}:{primary['id']}",
+                           sources.safe_path(manifest_file.resolve().parent,primary['file'])))
+        atlas_images,atlas_entries=scroll_atlas.build(cutouts,photos,log_file.parent/'reference-atlases')
+        inputs=[('DRAFT',draft_file),('STYLE',sources.safe_path(manifest_file.resolve().parent,
+                    manifest['style_reference']))]+atlas_images
+        if len(inputs)>MAX_IMAGE_COUNT:
+            raise ValueError('scroll reference atlases exceed the supported image input budget')
+        original_sources=cutouts+photos
+    else:
+        inputs=named_inputs(manifest,plan,draft_file,plan_file,manifest_file)
+        original_sources=[]
+    snapshot={str(p):layout.digest(p) for _,p in inputs+original_sources}
     snapshot.update({str(p):layout.digest(p) for p in (
         manifest_file,lock_file,plan_file,draft_evidence_file,brief_file)})
     prompt=make_prompt(plan,brief_file)
@@ -238,6 +288,8 @@ def run(*, manifest_file: Path, lock_file: Path, plan_file: Path,
     for path,old_sha in snapshot.items():
         if layout.digest(Path(path))!=old_sha:
             raise ValueError(f'image input/evidence changed during generation: {path}')
+    if sources.verify_lock(manifest_file,lock):
+        raise ValueError('source evidence changed during image generation')
     if hashlib.sha256(generated).hexdigest()==layout.digest(draft_file):
         raise ValueError('generated result equals the draft; no integrated redraw occurred')
     with Image.open(io.BytesIO(generated)) as im:
@@ -256,6 +308,9 @@ def run(*, manifest_file: Path, lock_file: Path, plan_file: Path,
         'image_input_confirmed':True,
         'reference_ids_attached':[ident for ident,_ in inputs],
         'reference_image_sha256':{ident:layout.digest(p) for ident,p in inputs},
+        'input_mode':'reference-atlas-v1' if atlas_entries else 'individual',
+        'atlas_entries':atlas_entries,
+        'atlas_dir':'reference-atlases' if atlas_entries else None,
         'plan_sha256':layout.digest(plan_file),
         'draft_sha256':layout.digest(draft_file),
         'output_sha256':layout.digest(output_file),
@@ -265,6 +320,8 @@ def run(*, manifest_file: Path, lock_file: Path, plan_file: Path,
     }
     sources.write_json(log_file,log)
     return log
+
+
 
 
 def main() -> None:
@@ -292,5 +349,9 @@ def main() -> None:
     print("This image is NOT yet approved; run montage_audit.py on the final output")
 
 
+
+
 if __name__=='__main__':
     main()
+
+
