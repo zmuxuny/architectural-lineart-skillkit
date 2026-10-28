@@ -24,14 +24,14 @@ import scroll_atlas
 MONTAGE_FEATURES = (
     ("integrated_composition", "All landmarks form ONE illustration, not isolated cutout tiles, separated stickers, or equal-spaced gallery."),
     ("visual_hierarchy", "The declared anchor clearly dominates while supporting landmarks remain recognizable."),
-    ("shared_connectors", "Ornamental foliage/ground/flowing lines visibly connect the subjects without suggesting invented real geography."),
+    ("shared_connectors", "Subjects connect through architectural rooflines, facade edges, deliberate overlap and at most one faint architectural baseline; foliage, water, waves and scenery do not count as valid connectors."),
     ("consistent_style", "Building strokes, ink weight, density, texture, lighting and perspective style are coherent."),
     ("print_readability", "Unified legible silhouette suitable for the designated commemorative merchandise."),
 )
 SCROLL_FEATURES = (
     ("landmark_inventory", "All named buildings are independently recognizable, not replaced by trees or invented structures."),
-    ("architecture_priority", "Architectural structures clearly dominate visual attention; no default dense vegetation, lake, decorative clouds or water patterns."),
-    ("continuous_landmark_rhythm", "Six or more recognizable landmark silhouettes extend across left, middle and right with varied heights and consistent drawing style."),
+    ("architecture_priority", "Architecture occupies nearly all meaningful visual attention; trees, canopies, shrubs, flowerbeds, lawns, water, reflections, clouds, birds and decorative waves are absent, not merely small or subordinate."),
+    ("continuous_landmark_rhythm", "Every planned landmark forms one dense-but-readable architectural band across left, middle and right, with varied roof heights, intentional partial overlaps, no equal-spaced sticker rhythm and no large empty gaps."),
 )
 
 
@@ -161,10 +161,16 @@ def montage_prompt(plan: dict, stage: str) -> str:
         "Draft is ONLY a guide; final must be an integrated image redraw, not merely a screenshot of a layout. "
         "Buildings are intentionally relocated artistically; no claim of a real geographic single viewpoint. "
         f"Usage={plan['usage']}; required anchor={plan['anchor_landmark_id']}; {focus}\n"
-        "Evaluate all five required features as separate reports: "
-        + ", ".join(f"{key}: {desc}" for key, desc in MONTAGE_FEATURES)
-        + (", "+", ".join(f"{key}: {desc}" for key,desc in SCROLL_FEATURES)
-           if plan.get("archetype")=="landmark-scroll" else "")
+        "Evaluate all required features as separate reports: "
+        + ", ".join(
+            f"{key}: {desc}" for key, desc in (
+                tuple((k, d) for k, d in MONTAGE_FEATURES if k != "shared_connectors")
+                + (("shared_connectors", "For a landmark-scroll, only architectural rooflines, facade edges, deliberate overlap and at most one faint architectural baseline count as connectors; foliage, water, waves and scenery are failures.")
+                   if plan.get("archetype") == "landmark-scroll" else
+                   (("shared_connectors", dict(MONTAGE_FEATURES)["shared_connectors"]),))
+                + (SCROLL_FEATURES if plan.get("archetype") == "landmark-scroll" else ())
+            )
+        )
         + ". And the four safety checks no_extra_geometry, no_invented_text, "
         "viewpoint_consistent, no_unobserved_facades. "
         "For positive assessments cite photo_ids ['draft'] or ['style'] exactly; "
@@ -179,7 +185,7 @@ def montage_prompt(plan: dict, stage: str) -> str:
            "FAIL if only three large buildings and numerous shrubs/trees dominate. "
            "FAIL when trees, vegetation, fake lake, waves or other scenery consume substantial visual ink. "
            "FAIL if silhouettes don't create a continuous architectural scroll across left/middle/right thirds. "
-           "Environmental motifs should be absent or subordinate, with no filler vegetation. "
+           "Trees, foliage, shrubs, lawns, water, reflections, clouds, birds and decorative waves are hard failures even if they look attractive; the style reference never authorizes copying scenery. "
            if plan.get("archetype")=="landmark-scroll" else "")
     )
 
