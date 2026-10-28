@@ -202,8 +202,8 @@ def make_prompt(plan: dict, brief_file: Path) -> str:
            "adding trees, a park, water, or a large empty foreground. Never drop difficult "
            "landmarks or replace them with generic buildings.\n\n"
            if scroll else "")
-        + "\\n\\nSOURCE-GROUNDED LANDMARK BRIEF (preserve its factual constraints):\\n" + text
-        + ("\\n\\nFINAL NON-NEGOTIABLE SCROLL RULES: draw architecture only; include every planned landmark; "
+        + "\n\nSOURCE-GROUNDED LANDMARK BRIEF (preserve its factual constraints):\n" + text
+        + ("\n\nFINAL NON-NEGOTIABLE SCROLL RULES: draw architecture only; include every planned landmark; "
            "no trees, vegetation, landscaping, water, reflections, clouds, birds, decorative waves or other scenery, "
            "even if they appear in the style reference or brief. Fill the horizontal span with one continuous, "
            "varied, moderately overlapping architectural silhouette. Do not create isolated equally spaced stickers, "
