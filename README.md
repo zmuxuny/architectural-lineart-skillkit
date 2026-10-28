@@ -13,9 +13,9 @@
 
 
 
-## v0.5 Architecture-first landmark scroll
+## v0.6 Architecture-first landmark scroll: scenery suppression + woven skyline
 
-When a school/city commemorative illustration must show **an entire visual scroll of architectural landmarks**, the default mode is now **`commemorative-montage / landmark-scroll`** (6–10 verified real buildings), rather than 2–5 separate landmarks surrounded by trees, shrubs and lake scenery. Planning distributes distinctive rooflines and facades across left/center/right and deliberately keeps scenery negligible (**architecture >85%, ornament <5% as qualitative artistic design targets**). No default forests, bushes, waves or water reflections. The `hero-montage` 2–5 landmark subtype remains for explicitly sparse visual identities.
+When a school/city commemorative illustration must show **an entire visual scroll of architectural landmarks**, the default mode is now **`commemorative-montage / landmark-scroll`** (6–10 verified real buildings), rather than 2–5 separate landmarks surrounded by trees, shrubs and lake scenery. Planning distributes distinctive rooflines and facades across left/center/right. The integrated redraw prompt now treats the draft as composition authority and the style image as linework-only, explicitly bans trees and scenery filler, and requires a dense, interlocking architectural silhouette (**architecture 85–95%, non-architectural marks <3% as qualitative artistic targets**). The `hero-montage` 2–5 landmark subtype remains for explicitly sparse visual identities.
 
 `compose_v2.py plan --archetype landmark-scroll` creates a real spatial draft; `integrated_edit.py` packages every cutout and verified primary photo into labeled, SHA-bound reference atlases within the image-input budget; `montage_audit.py` now rejects missing landmark identity, scenic dominance and disconnected layout. **A draft or atlas is never a finished illustration.** [Architecture-first scroll protocol](docs/LANDMARK_SCROLL.zh-CN.md). The real-model visual quality has not been benchmarked.
 
