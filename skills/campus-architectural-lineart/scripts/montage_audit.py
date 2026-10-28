@@ -165,7 +165,7 @@ def montage_prompt(plan: dict, stage: str) -> str:
         + ", ".join(
             f"{key}: {desc}" for key, desc in (
                 tuple((k, d) for k, d in MONTAGE_FEATURES if k != "shared_connectors")
-                + (("shared_connectors", "For a landmark-scroll, only architectural rooflines, facade edges, deliberate overlap and at most one faint architectural baseline count as connectors; foliage, water, waves and scenery are failures.")
+                + ((("shared_connectors", "For a landmark-scroll, only architectural rooflines, facade edges, deliberate overlap and at most one faint architectural baseline count as connectors; foliage, water, waves and scenery are failures."),)
                    if plan.get("archetype") == "landmark-scroll" else
                    (("shared_connectors", dict(MONTAGE_FEATURES)["shared_connectors"]),))
                 + (SCROLL_FEATURES if plan.get("archetype") == "landmark-scroll" else ())
