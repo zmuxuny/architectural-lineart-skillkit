@@ -174,7 +174,13 @@ def make_scroll_plan(manifest: dict, usage: str, anchor_id: str | None = None,
     for i, bid in enumerate(ordered):
         width = min(.33, max(.155, base_width * width_pattern[i] *
                             (1.12 if bid == anchor_id else 1)))
-        target_center = base_width / 2 + (1 - base_width) * i / (n - 1)
+        # Avoid a mechanical equal-spacing gallery: keep full-width coverage but
+        # introduce small, deliberate horizontal rhythm changes. Width/height and
+        # overlap still remain bounded so every evidence-backed landmark reads.
+        center_jitter = [0.000, -0.022, 0.015, -0.028, 0.022,
+                         -0.012, 0.024, -0.020, 0.018, 0.000]
+        target_center = (base_width / 2 + (1 - base_width) * i / (n - 1)
+                         + center_jitter[i])
         center_x = min(1-width/2, max(width/2, target_center))
         # Different visual heights, but all buildings take substantial space;
         # avoid equally sized stickers and avoid tiny background cameos.
