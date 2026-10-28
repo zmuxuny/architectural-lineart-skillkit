@@ -1,4 +1,4 @@
-## [0.5.0] - 2026-10-25
+## [0.6.0] - 2026-10-28\n\n- Strengthen the integrated redraw contract: draft controls composition; style references control linework only and must not transfer trees, water or scenery.\n- Require all planned landmarks to form a dense, readable, interlocking architectural scroll across the full width; ban equal-spaced sticker layouts and scenery used as filler.\n- Clarify that roofline rhythm, partial architectural overlap and shared baseline—not vegetation—create continuity.\n- These are prompt/documentation improvements; real image-model output still requires visual testing and final montage audit.\n\n## [0.5.0] - 2026-10-25
 
 - Respond to visual test feedback: architecture-first landmark scroll, not three landmarks buried in foliage or an isolated sticker gallery.
 - Add `compose_v2.py plan --archetype landmark-scroll` for 6–10 verified landmarks, even left/middle/right coverage, varied roofline rhythm, and near-zero default ornamental lines.
