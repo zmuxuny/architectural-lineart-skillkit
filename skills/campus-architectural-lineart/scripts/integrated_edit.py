@@ -202,7 +202,14 @@ def make_prompt(plan: dict, brief_file: Path) -> str:
            "adding trees, a park, water, or a large empty foreground. Never drop difficult "
            "landmarks or replace them with generic buildings.\n\n"
            if scroll else "")
-        + text
+        + "\\n\\nSOURCE-GROUNDED LANDMARK BRIEF (preserve its factual constraints):\\n" + text
+        + ("\\n\\nFINAL NON-NEGOTIABLE SCROLL RULES: draw architecture only; include every planned landmark; "
+           "no trees, vegetation, landscaping, water, reflections, clouds, birds, decorative waves or other scenery, "
+           "even if they appear in the style reference or brief. Fill the horizontal span with one continuous, "
+           "varied, moderately overlapping architectural silhouette. Do not create isolated equally spaced stickers, "
+           "drop difficult landmarks, leave large gaps, or replace real buildings with generic architecture. "
+           "The draft controls composition; the style reference controls linework only."
+           if scroll else "")
     )
     if len(prompt) > MAX_PROMPT_CHARS:
         raise ValueError("generation prompt too long for image edits API")
