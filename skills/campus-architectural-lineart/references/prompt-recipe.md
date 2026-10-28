@@ -74,4 +74,14 @@ Run the final montage-specific two-pass vision review. **Judge the final unified
 
 ### Architecture-first landmark scroll (six to ten buildings)
 
-When the request is a school/city **architectural landmark scroll**, do not use the scenic-school prompt above. Select the `landmark-scroll` subtype instead of sparse hero montage. Give every landmark an original photo identity; distribute buildings continuously across the width with varied roofline rhythm and architectural silhouette detail. **No default trees, hedges, lake, landscape reflections, foreground forests, or decorative waves.** Architectural subject ink should visually dominate (>85% design target), scenery <5%. Do not pad sparse inputs with fabricated landmarks. Use the generated `integrated-generation-brief.md`, source-labeled atlases and mandatory final whole-image audit. The result must look like a well-populated campus/city architectural illustrated scroll, never three buildings placed into a landscaped poster.
+When the request is a school/city **architectural landmark scroll**, use the `landmark-scroll` subtype. The draft is the composition authority; the style image contributes line technique only. **Never copy its trees, landscaping, lake, reflections or decorative scenery.**
+
+The integrated redraw prompt must enforce all of the following:
+
+- **Architecture fills the width**: include every planned landmark; use a dense but readable left-to-right rhythm, varied roof heights, facades and towers, moderate intentional overlap, and a shared architectural baseline.
+- **No scenery filler**: zero trees, canopies, shrubs, hedges, flowerbeds, lawns, water, reflections, clouds, mountains, birds or decorative waves by default. Do not use landscaping to hide missing landmarks or fill gaps.
+- **One woven silhouette, not stickers**: avoid isolated cutouts, equal-sized/equal-spaced buildings, oversized gaps, and a composition that visually collapses to only three large subjects. Each named landmark remains identifiable.
+- **Hierarchy and legibility**: structural contours carry more weight than tiny window texture; a central anchor may lead but cannot overwhelm the supporting buildings.
+- **Evidence first**: use the actual source photo to preserve each building; do not invent architecture, signs, or adjacency to make the panorama feel plausible.
+
+Aim for architecture to occupy 85–95% of meaningful visual attention and scenery below 3%. These are composition goals, not machine-measured guarantees. The result is a stylized commemorative scroll, not a factual single-camera panorama.

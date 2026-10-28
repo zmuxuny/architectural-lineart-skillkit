@@ -1,3 +1,11 @@
+## [0.6.0] - 2026-10-28
+
+- Strengthen the integrated redraw contract: draft controls composition; style references control linework only and must not transfer trees, water or scenery.
+- Require all planned landmarks to form a dense, readable, interlocking architectural scroll across the full width; ban equal-spaced sticker layouts and scenery used as filler.
+- Clarify that roofline rhythm, partial architectural overlap and shared baseline—not vegetation—create continuity.
+- Tune landmark placement scale to reduce excessive bounding-box overlap and add a restrained irregular horizontal rhythm instead of mechanical equal spacing.
+- These are prompt/documentation improvements; real image-model output still requires visual testing and final montage audit.
+
 ## [0.5.0] - 2026-10-25
 
 - Respond to visual test feedback: architecture-first landmark scroll, not three landmarks buried in foliage or an isolated sticker gallery.

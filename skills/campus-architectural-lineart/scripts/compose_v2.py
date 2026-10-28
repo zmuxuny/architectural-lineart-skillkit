@@ -160,7 +160,9 @@ def make_scroll_plan(manifest: dict, usage: str, anchor_id: str | None = None,
     ordered = [x for x in ids if x != anchor_id]
     ordered.insert(len(ids)//2, anchor_id)
     n = len(ordered)
-    base_width = min(.27, max(.18, 1.60 / n))
+    # Fit more landmarks without letting their bounding boxes swallow one another.
+    # The old 1.60/n scale produced excessive overlap for 6–10 buildings.
+    base_width = min(.24, max(.13, 1.30 / n))
     width_pattern = [.96, 1.13, .84, 1.10, .92, 1.17, .88, 1.06, .95, 1.12]
     upper = {
         "tote-bag": .12,
@@ -174,7 +176,13 @@ def make_scroll_plan(manifest: dict, usage: str, anchor_id: str | None = None,
     for i, bid in enumerate(ordered):
         width = min(.33, max(.155, base_width * width_pattern[i] *
                             (1.12 if bid == anchor_id else 1)))
-        target_center = base_width / 2 + (1 - base_width) * i / (n - 1)
+        # Avoid a mechanical equal-spacing gallery: keep full-width coverage but
+        # introduce small, deliberate horizontal rhythm changes. Width/height and
+        # overlap still remain bounded so every evidence-backed landmark reads.
+        center_jitter = [0.000, -0.012, 0.008, -0.015, 0.011,
+                         -0.006, 0.013, -0.010, 0.009, 0.000]
+        target_center = (base_width / 2 + (1 - base_width) * i / (n - 1)
+                         + center_jitter[i])
         center_x = min(1-width/2, max(width/2, target_center))
         # Different visual heights, but all buildings take substantial space;
         # avoid equally sized stickers and avoid tiny background cameos.

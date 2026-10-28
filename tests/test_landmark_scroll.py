@@ -63,6 +63,20 @@ class ScrollTests(unittest.TestCase):
         with Image.open(self.root/'draft'/'draft-layout.png') as im:
             self.assertEqual(im.size,(1672,941))
 
+    def test_scroll_spacing_is_irregular_but_landmarks_still_cover_full_width(self):
+        _, plan, _ = self.plan(9)
+        centers = []
+        widths = []
+        for item in plan['placements']:
+            x0, _, x1, _ = item['rect']
+            centers.append((x0 + x1) / 2)
+            widths.append(x1 - x0)
+        spacings = [round(centers[i+1] - centers[i], 4) for i in range(len(centers)-1)]
+        self.assertGreater(len(set(spacings)), 3, spacings)
+        self.assertLess(min(x0 for x0, _, _, _ in [p['rect'] for p in plan['placements']]), .02)
+        self.assertGreater(max(p['rect'][2] for p in plan['placements']), .98)
+        self.assertTrue(all(.14 <= w <= .30 for w in widths), widths)
+
     def test_gallery_and_landscape_modes_cannot_disguise_three_subjects_as_scroll(self):
         with self.assertRaisesRegex(ValueError,'6–10'):
             layout.make_scroll_plan({'landmarks':self.manifest['landmarks'][:3]},'tote-bag')
@@ -101,7 +115,9 @@ class ScrollTests(unittest.TestCase):
             ids=[k for k,_ in images]
             self.assertEqual(ids[:2],['DRAFT','STYLE'])
             self.assertTrue(all(k.startswith(('CUTOUT_ATLAS:','PHOTO_ATLAS:')) for k in ids[2:]))
-            self.assertIn('LANDMARK SCROLL SPECIAL RULES',prompt)
+            self.assertIn('FINAL NON-NEGOTIABLE SCROLL RULES',prompt)
+            self.assertIn('no trees, vegetation, landscaping',prompt)
+            self.assertIn('style reference controls linework only',prompt)
             self.assertLessEqual(len(images),16)
             return out.getvalue(),'req-unit-test',{'model':model}
         import reference_pipeline as sources
@@ -133,6 +149,8 @@ class ScrollTests(unittest.TestCase):
         prompt=audit.montage_prompt(p,'adversarial')
         self.assertIn('shrubs/trees',prompt)
         self.assertIn('all 8',prompt)
+        self.assertIn('hard failures',prompt.lower())
+        self.assertIn('architectural rooflines',prompt)
 
 
 if __name__=='__main__':unittest.main()
